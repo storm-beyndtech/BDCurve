@@ -1,0 +1,586 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   CSS VARIABLES (shadcn/ui + Custom Tokens)
+   ============================================ */
+@layer base {
+	:root {
+		--background: 240 5% 97%;
+		--foreground: 240 10% 3.9%;
+		--card: 240 5% 98%;
+		--card-foreground: 240 10% 3.9%;
+		--popover: 240 5% 98%;
+		--popover-foreground: 240 10% 3.9%;
+
+		/* Marketing Primary (Green) */
+		--primary: 142 71% 45%;
+		--primary-foreground: 144 61% 20%;
+
+		/* Dashboard Accent (Purple) */
+		--accent: 271 91% 65%;
+		--accent-foreground: 280 85% 15%;
+
+		--secondary: 240 6% 92%;
+		--secondary-foreground: 240 5.9% 10%;
+		--muted: 240 6% 92%;
+		--muted-foreground: 240 4% 44%;
+		--border: 240 6% 85%;
+		--input: 240 6% 90%;
+		--ring: 142 71% 45%;
+		--radius: 0.5rem;
+
+		--destructive: 0 84.2% 60.2%;
+		--destructive-foreground: 0 0% 98%;
+	}
+
+	.dark {
+		--background: 240 10% 3.9%;
+		--foreground: 0 0% 98%;
+		--card: 240 8% 8%;
+		--card-foreground: 0 0% 98%;
+		--popover: 240 8% 8%;
+		--popover-foreground: 0 0% 98%;
+
+		/* Marketing Primary (Green) */
+		--primary: 142 71% 45%;
+		--primary-foreground: 144 100% 96%;
+
+		/* Dashboard Accent (Purple) */
+		--accent: 271 91% 65%;
+		--accent-foreground: 280 100% 98%;
+
+		--secondary: 240 3.7% 15.9%;
+		--secondary-foreground: 0 0% 98%;
+		--muted: 240 3.7% 15.9%;
+		--muted-foreground: 240 4% 45%;
+		--border: 240 3.7% 18%;
+		--input: 240 3.7% 15.9%;
+		--ring: 271 91% 65%;
+
+		--destructive: 0 62.8% 30.6%;
+		--destructive-foreground: 0 0% 98%;
+	}
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+@layer base {
+	* {
+		@apply border-border;
+	}
+
+	body {
+		@apply bg-background text-foreground;
+		font-feature-settings:
+			"rlig" 1,
+			"calt" 1;
+		text-rendering: optimizeLegibility;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		overflow-x: hidden;
+	}
+
+	/* Smooth scrolling & prevent horizontal overflow */
+	html {
+		scroll-behavior: smooth;
+		overflow-x: hidden;
+	}
+
+	/* Remove default margins */
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6,
+	p {
+		@apply m-0;
+	}
+}
+
+/* ============================================
+   LIQUID GLASS UTILITIES (Apple-style)
+   ============================================ */
+@layer utilities {
+	/* Glass Background - Light Mode */
+	.bg-glass {
+		background: rgba(250, 250, 252, 0.6);
+		backdrop-filter: blur(16px);
+		-webkit-backdrop-filter: blur(16px);
+	}
+
+	.bg-glass-hover:hover {
+		background: rgba(250, 250, 252, 0.7);
+	}
+
+	.bg-glass-strong {
+		background: rgba(250, 250, 252, 0.75);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+	}
+
+	/* Glass Background - Dark Mode */
+	.dark .bg-glass {
+		background: rgba(0, 0, 0, 0.5);
+	}
+
+	.dark .bg-glass-hover:hover {
+		background: rgba(0, 0, 0, 0.6);
+	}
+
+	.dark .bg-glass-strong {
+		background: rgba(20, 20, 20, 0.7);
+	}
+
+	/* Glass Navigation (Most translucent) */
+	.bg-glass-nav {
+		background: rgba(250, 250, 252, 0.65);
+		backdrop-filter: blur(20px) saturate(180%);
+		-webkit-backdrop-filter: blur(20px) saturate(180%);
+	}
+
+	.dark .bg-glass-nav {
+		background: rgba(10, 10, 10, 0.6);
+	}
+
+	/* Glass Card */
+	.bg-glass-card {
+		background: rgba(250, 250, 252, 0.5);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+	}
+
+	.dark .bg-glass-card {
+		background: rgba(20, 20, 20, 0.6);
+	}
+
+	/* Glass Borders */
+	.border-glass {
+		border: 1px solid rgba(255, 255, 255, 0.2);
+	}
+
+	.dark .border-glass {
+		border: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	.border-glass-strong {
+		border: 1px solid rgba(255, 255, 255, 0.3);
+	}
+
+	.dark .border-glass-strong {
+		border: 1px solid rgba(255, 255, 255, 0.15);
+	}
+
+	/* Glass Shadow (Apple-style inset highlight) */
+	.shadow-glass {
+		box-shadow:
+			0 8px 32px rgba(0, 0, 0, 0.015),
+			0 2px 8px rgba(0, 0, 0, 0.01),
+			inset 0 1px 0 rgba(255, 255, 255, 0.08);
+	}
+
+	.dark .shadow-glass {
+		box-shadow:
+			0 8px 32px rgba(0, 0, 0, 0.3),
+			0 2px 8px rgba(0, 0, 0, 0.15),
+			inset 0 1px 0 rgba(255, 255, 255, 0.05);
+	}
+}
+
+/* ============================================
+   DEPTH SHADOW UTILITIES (Apple-style elevation)
+   ============================================ */
+@layer utilities {
+	.shadow-depth-sm {
+		box-shadow:
+			0 2px 8px rgba(0, 0, 0, 0.01),
+			0 1px 2px rgba(0, 0, 0, 0.015);
+	}
+
+	.shadow-depth {
+		box-shadow:
+			0 4px 16px rgba(0, 0, 0, 0.018),
+			0 2px 4px rgba(0, 0, 0, 0.015);
+	}
+
+	.shadow-depth-md {
+		box-shadow:
+			0 8px 24px rgba(0, 0, 0, 0.025),
+			0 4px 8px rgba(0, 0, 0, 0.018);
+	}
+
+	.shadow-depth-lg {
+		box-shadow:
+			0 16px 48px rgba(0, 0, 0, 0.032),
+			0 8px 16px rgba(0, 0, 0, 0.025);
+	}
+
+	.shadow-depth-xl {
+		box-shadow:
+			0 24px 64px rgba(0, 0, 0, 0.04),
+			0 12px 24px rgba(0, 0, 0, 0.032);
+	}
+
+	.shadow-elevated {
+		box-shadow:
+			0 20px 40px -12px rgba(0, 0, 0, 0.045),
+			0 8px 16px -8px rgba(0, 0, 0, 0.06);
+	}
+
+	.shadow-elevated-lg {
+		box-shadow:
+			0 32px 64px -12px rgba(0, 0, 0, 0.06),
+			0 16px 32px -8px rgba(0, 0, 0, 0.075);
+	}
+
+	/* Dark mode adjustments for depth */
+	.dark .shadow-depth-sm,
+	.dark .shadow-depth,
+	.dark .shadow-depth-md,
+	.dark .shadow-depth-lg,
+	.dark .shadow-depth-xl {
+		box-shadow:
+			0 8px 32px rgba(0, 0, 0, 0.5),
+			0 2px 8px rgba(0, 0, 0, 0.3),
+			inset 0 1px 0 rgba(255, 255, 255, 0.05);
+	}
+}
+
+/* ============================================
+   AMBIENT GRADIENT BACKGROUNDS
+   ============================================ */
+@layer utilities {
+	/* Marketing Page Gradients (Green-based) */
+	.bg-ambient-marketing {
+		background:
+			radial-gradient(at 40% 20%, rgba(34, 197, 94, 0.08) 0px, transparent 50%),
+			radial-gradient(at 80% 0%, rgba(16, 185, 129, 0.06) 0px, transparent 50%),
+			radial-gradient(at 0% 50%, rgba(5, 150, 105, 0.04) 0px, transparent 50%);
+	}
+
+	.bg-ambient-marketing-section {
+		background: radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.03) 0%, transparent 70%);
+	}
+
+	/* Dashboard Gradients (Purple-based) */
+	.bg-ambient-dashboard {
+		background:
+			radial-gradient(at 40% 20%, rgba(168, 85, 247, 0.06) 0px, transparent 50%),
+			radial-gradient(at 80% 0%, rgba(147, 51, 234, 0.04) 0px, transparent 50%),
+			radial-gradient(at 0% 50%, rgba(126, 34, 206, 0.03) 0px, transparent 50%);
+	}
+
+	.bg-ambient-dashboard-panel {
+		background: linear-gradient(135deg, rgba(168, 85, 247, 0.03) 0%, transparent 100%);
+	}
+
+	.bg-ambient-dashboard-accent {
+		background: radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.08) 0%, transparent 60%);
+	}
+
+	/* Mesh Gradient (Multi-color) */
+	.bg-ambient-mesh {
+		background:
+			radial-gradient(at 40% 20%, hsla(280, 100%, 70%, 0.3) 0px, transparent 50%),
+			radial-gradient(at 80% 0%, hsla(240, 100%, 70%, 0.3) 0px, transparent 50%),
+			radial-gradient(at 0% 50%, hsla(320, 100%, 70%, 0.3) 0px, transparent 50%);
+	}
+
+	/* Color-specific Glows */
+	.shadow-glow-purple {
+		box-shadow:
+			0 20px 60px -15px rgba(168, 85, 247, 0.25),
+			0 10px 30px -10px rgba(168, 85, 247, 0.15);
+	}
+
+	.shadow-glow-green {
+		box-shadow:
+			0 20px 60px -15px rgba(34, 197, 94, 0.25),
+			0 10px 30px -10px rgba(34, 197, 94, 0.15);
+	}
+
+	.shadow-glow-blue {
+		box-shadow:
+			0 20px 60px -15px rgba(59, 130, 246, 0.25),
+			0 10px 30px -10px rgba(59, 130, 246, 0.15);
+	}
+
+	.shadow-glow-pink {
+		box-shadow:
+			0 20px 60px -15px rgba(236, 72, 153, 0.25),
+			0 10px 30px -10px rgba(236, 72, 153, 0.15);
+	}
+}
+
+/* ============================================
+   MARKETING CTA STYLES (Green-based, elevated)
+   ============================================ */
+@layer components {
+	.btn-marketing-primary {
+		@apply relative overflow-hidden;
+		background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+		box-shadow:
+			0 8px 24px -6px rgba(34, 197, 94, 0.3),
+			0 4px 12px -3px rgba(34, 197, 94, 0.2);
+		transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.btn-marketing-primary:hover {
+		background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+		box-shadow:
+			0 12px 32px -8px rgba(34, 197, 94, 0.35),
+			0 6px 16px -4px rgba(34, 197, 94, 0.25);
+		transform: translateY(-2px);
+	}
+
+	.btn-marketing-primary:active {
+		transform: translateY(0);
+	}
+
+	.btn-marketing-glass {
+		@apply bg-glass border-glass shadow-glass;
+		transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.btn-marketing-glass:hover {
+		@apply bg-glass-hover border-glass-strong;
+		transform: translateY(-2px);
+	}
+}
+
+/* ============================================
+   DASHBOARD CTA STYLES (Purple-based, subtle)
+   ============================================ */
+@layer components {
+	.btn-dashboard-primary {
+		@apply relative overflow-hidden;
+		background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+		box-shadow: 0 4px 16px -4px rgba(168, 85, 247, 0.4);
+		transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.btn-dashboard-primary:hover {
+		background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
+		box-shadow: 0 8px 24px -6px rgba(168, 85, 247, 0.5);
+		transform: translateY(-1px);
+	}
+
+	.btn-dashboard-subtle {
+		background: rgba(168, 85, 247, 0.1);
+		border: 1px solid rgba(168, 85, 247, 0.2);
+		transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.btn-dashboard-subtle:hover {
+		background: rgba(168, 85, 247, 0.15);
+	}
+}
+
+/* ============================================
+   MARQUEE / CAROUSEL UTILITIES
+   ============================================ */
+@layer utilities {
+	.marquee-container {
+		@apply flex overflow-hidden;
+		mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+		-webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+	}
+
+	.marquee-content {
+		@apply flex gap-8;
+		animation: marquee 35s linear infinite;
+	}
+
+	.marquee-content-reverse {
+		@apply flex gap-8;
+		animation: marquee-reverse 35s linear infinite;
+	}
+
+	.marquee-container:hover .marquee-content,
+	.marquee-container:hover .marquee-content-reverse {
+		animation-play-state: paused;
+	}
+
+	/* Marquee animation utility */
+	.animate-marquee {
+		animation: marquee 35s linear infinite;
+	}
+
+	.animate-marquee:hover {
+		animation-play-state: paused;
+	}
+}
+
+/* ============================================
+   MARQUEE KEYFRAMES
+   ============================================ */
+@keyframes marquee {
+	0% {
+		transform: translateX(0);
+	}
+	100% {
+		transform: translateX(-50%);
+	}
+}
+
+@keyframes marquee-reverse {
+	0% {
+		transform: translateX(-50%);
+	}
+	100% {
+		transform: translateX(0);
+	}
+}
+
+/* ============================================
+   SECTION SPACING UTILITIES
+   ============================================ */
+@layer utilities {
+	.section-spacing-sm {
+		@apply py-16 md:py-20;
+	}
+
+	.section-spacing-md {
+		@apply py-20 md:py-24 lg:py-32;
+	}
+
+	.section-spacing-lg {
+		@apply py-24 md:py-32 lg:py-40;
+	}
+
+	.section-spacing-xl {
+		@apply py-32 md:py-40 lg:py-48;
+	}
+}
+
+/* ============================================
+   CONTAINER UTILITIES
+   ============================================ */
+@layer utilities {
+	.container-padding {
+		@apply px-6 md:px-8 lg:px-12;
+	}
+
+	.container-narrow {
+		@apply max-w-4xl mx-auto;
+	}
+
+	.container-wide {
+		@apply max-w-7xl mx-auto;
+	}
+}
+
+/* ============================================
+   SCROLLBAR STYLING (Minimal, Apple-style)
+   ============================================ */
+@layer base {
+	/* Webkit browsers (Chrome, Safari, Edge) */
+	::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	::-webkit-scrollbar-thumb {
+		background: rgba(0, 0, 0, 0.2);
+		border-radius: 4px;
+	}
+
+	::-webkit-scrollbar-thumb:hover {
+		background: rgba(0, 0, 0, 0.3);
+	}
+
+	.dark ::-webkit-scrollbar-thumb {
+		background: rgba(255, 255, 255, 0.2);
+	}
+
+	.dark ::-webkit-scrollbar-thumb:hover {
+		background: rgba(255, 255, 255, 0.3);
+	}
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+@layer utilities {
+	/* Hide scrollbar while keeping scroll functionality */
+	.scrollbar-hide {
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+	}
+
+	.scrollbar-hide::-webkit-scrollbar {
+		display: none;
+	}
+
+	/* Dashboard grid background - Railway style subtle grids */
+	.dashboard-grid-bg {
+		background-image:
+			linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+			linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+		background-size: 80px 80px;
+	}
+
+	.dark .dashboard-grid-bg {
+		background-image:
+			linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+			linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+		background-size: 80px 80px;
+	}
+
+	/* Dashboard panel with grid background */
+	.dashboard-panel-grid {
+		@apply dashboard-grid-bg relative;
+	}
+}
+
+/* ============================================
+   GTRANSLATE STYLING
+   ============================================ */
+/* Remove background and padding from the switcher */
+.gtranslate_wrapper,
+.gtranslate_wrapper * {
+	background: transparent !important;
+	padding: 0 !important;
+	margin: 0 !important;
+	box-shadow: none !important;
+	border: none !important;
+	font-size: 12px !important;
+}
+
+/* Remove background and padding */
+.gtranslate_wrapper > div {
+	background: transparent !important;
+	position: relative !important;
+}
+
+/* Make flag in switcher smaller */
+.gtranslate_wrapper > div img {
+	width: 20px !important;
+	height: auto !important;
+	margin-right: 4px !important;
+}
+
+.gt_options a {
+	padding: 4px !important;
+}
+
+.gt_options {
+	background: white !important;
+}
+
+.gtranslate_wrapper > div::after {
+	content: "▾";
+	position: absolute;
+	right: 4px;
+	top: 50%;
+	transform: translateY(-60%);
+	font-size: 20px;
+	color: #555;
+}

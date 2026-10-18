@@ -1,0 +1,7 @@
+# Allow all crawlers for now (Google review pending)
+User-agent: *
+Allow: /
+
+# After Google review is approved, replace with:
+# User-agent: *
+# Disallow: /
