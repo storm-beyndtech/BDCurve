@@ -140,7 +140,7 @@ export function SiteHeader() {
 							</Link>
 						</div>
 
-						<div className="flex items-center gap-5 justify-end">
+						<div className="flex items-center gap-5 justify-end lg:hidden">
 							{/* Mobile Menu Button */}
 							<div className="lg:hidden flex items-center gap-2">
 								<button

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
+import { AssetLogo } from "@/components/common/asset-logo";
 
 export interface TrendingAsset {
 	symbol: string;
@@ -67,6 +68,13 @@ export function TrendingAssets({ assets, className }: TrendingAssetsProps) {
 										{index + 1}
 									</span>
 								</div>
+
+								<AssetLogo
+									symbol={asset.symbol}
+									name={asset.name}
+									type={asset.category === "crypto" ? "crypto" : "stock"}
+									size={40}
+								/>
 
 								{/* Asset Info */}
 								<div className="flex-1 min-w-0">

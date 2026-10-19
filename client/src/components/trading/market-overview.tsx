@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AssetLogo } from "@/components/common/asset-logo";
 
 export interface MarketIndex {
 	symbol: string;
@@ -19,15 +20,16 @@ export interface MarketOverviewProps {
 }
 
 export function MarketOverview({ indices, cryptos, className }: MarketOverviewProps) {
-	const renderMarketItem = (item: MarketIndex) => {
+	const renderMarketItem = (item: MarketIndex, type: "stock" | "crypto") => {
 		const isPositive = item.changePercent >= 0;
 
 		return (
 			<div
 				key={item.symbol}
-				className="flex items-center justify-between p-4 rounded-lg bg-card/40 border border-border hover:bg-card/60 transition-colors"
+				className="flex items-center justify-between gap-3 p-4 rounded-lg bg-card/40 border border-border hover:bg-card/60 transition-colors"
 			>
-				<div className="flex-1">
+				<AssetLogo symbol={item.symbol} name={item.name} type={type} size={36} />
+				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-2 mb-1">
 						<span className="font-semibold text-sm">{item.symbol}</span>
 						{isPositive ? (
@@ -74,7 +76,7 @@ export function MarketOverview({ indices, cryptos, className }: MarketOverviewPr
 				<div>
 					<h4 className="text-sm font-medium text-muted-foreground mb-3">Major Indices</h4>
 					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-						{indices.map(renderMarketItem)}
+						{indices.map((item) => renderMarketItem(item, "stock"))}
 					</div>
 				</div>
 
@@ -82,7 +84,7 @@ export function MarketOverview({ indices, cryptos, className }: MarketOverviewPr
 				<div>
 					<h4 className="text-sm font-medium text-muted-foreground mb-3">Top Cryptocurrencies</h4>
 					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-						{cryptos.map(renderMarketItem)}
+						{cryptos.map((item) => renderMarketItem(item, "crypto"))}
 					</div>
 				</div>
 			</div>

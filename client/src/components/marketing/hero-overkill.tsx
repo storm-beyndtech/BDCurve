@@ -2,6 +2,7 @@ import { ArrowRight, Check, Landmark, ShieldCheck, WalletCards } from "lucide-re
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLiveQuote } from "@/hooks/useLiveQuote";
+import { AssetLogo } from "@/components/common/asset-logo";
 
 const markets = [
 	{ symbol: "BTC", name: "Bitcoin" },
@@ -24,7 +25,7 @@ function LiveMarketRow({ symbol, name }: { symbol: string; name: string }) {
 	const change = quote?.changePercent;
 	return (
 		<div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3.5">
-			<div className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-muted/50 text-xs font-bold">{symbol.slice(0, 2)}</div>
+			<AssetLogo symbol={symbol} name={name} type="crypto" size={36} />
 			<div><p className="text-sm font-semibold">{symbol}</p><p className="text-xs text-muted-foreground">{name}</p></div>
 			<div className="text-right">
 				<p className="text-sm font-medium tabular-nums">{formatPrice(quote?.price)}</p>
