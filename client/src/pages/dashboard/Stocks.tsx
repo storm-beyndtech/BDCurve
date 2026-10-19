@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import { AssetLogo } from "@/components/common/asset-logo";
 import { PriceAreaChart } from "@/components/charts/price-area-chart";
 import { buildFallbackSeries } from "@/lib/series";
-import { fetchStockHistorical } from "@/lib/historical";
 import { useLiveQuote } from "@/hooks/useLiveQuote";
 
 interface Stock {
@@ -144,18 +143,15 @@ export default function StocksPage() {
 			const data = await apiGet<any>("/api/market/stocks");
 			const stockList = Array.isArray(data) ? data : data?.stocks || [];
 
-			const stocksWithCharts = await Promise.all(stockList.map(async (stock: any) => {
-				const history = await fetchStockHistorical(stock.symbol, 365).catch(() => []);
-				return {
+			const stocksWithCharts = stockList.map((stock: any) => ({
 					symbol: stock.symbol,
 					name: stock.companyName || stock.name || stock.symbol,
 					currentPrice: stock.currentPrice || stock.price || 0,
 					changePercent: stock.changePercent ?? 0,
 					volume: stock.volume,
 					marketCap: stock.marketCap,
-					chartData: history.length ? history : generateChartData(stock.symbol, stock.currentPrice || stock.price || 0, stock.changePercent ?? 0),
-				};
-			}));
+					chartData: generateChartData(stock.symbol, stock.currentPrice || stock.price || 0, stock.changePercent ?? 0),
+				}));
 
 			setStocks(stocksWithCharts);
 		} catch (error) {

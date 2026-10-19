@@ -12,7 +12,7 @@ export type MarketQuote = {
   low24h: number;
   open24h: number;
   time: number;
-  source: "coindesk-data" | "alpha-vantage";
+  source: "coindesk-data" | "binance-public" | "alpha-vantage";
 };
 
 type QuoteListener = (quote: MarketQuote) => void;
@@ -43,6 +43,8 @@ const responseCache = new Map<string, { expiresAt: number; value: unknown }>();
 const inFlight = new Map<string, Promise<unknown>>();
 const listeners = new Set<QuoteListener>();
 const trackedSymbols = new Set(marketStreamSymbols);
+const activeStreamSymbols = new Map<string, number>();
+const upstreamSubscriptions = new Set<string>();
 const lastSnapshotWrites = new Map<string, number>();
 
 let upstream: WebSocket | null = null;
@@ -196,10 +198,14 @@ function connect() {
   upstream.on("open", () => {
     reconnectAttempt = 0;
     lastStreamMessageAt = Date.now();
-    upstream?.send(JSON.stringify({
-      action: "SubAdd",
-      subs: [...trackedSymbols].map((symbol) => `5~CCCAGG~${symbol}~USD`),
-    }));
+    const symbols = [...activeStreamSymbols.keys()];
+    if (symbols.length) {
+      upstream?.send(JSON.stringify({
+        action: "SubAdd",
+        subs: symbols.map((symbol) => `5~CCCAGG~${symbol}~USD`),
+      }));
+      symbols.forEach((symbol) => upstreamSubscriptions.add(symbol));
+    }
     setupWatchdog();
   });
   upstream.on("message", (raw) => {
@@ -253,6 +259,7 @@ function connect() {
   upstream.on("error", (error) => console.error("CoinDesk Data stream error", error.message));
   upstream.on("close", () => {
     upstream = null;
+    upstreamSubscriptions.clear();
     if (watchdogTimer) clearInterval(watchdogTimer);
     watchdogTimer = undefined;
     scheduleReconnect();
@@ -289,6 +296,43 @@ async function cryptoCompareGet(path: string, params: Record<string, string | nu
   return payload;
 }
 
+async function binancePublicGet(path: string, params: Record<string, string | number>) {
+  const url = new URL(`https://data-api.binance.vision/api/v3/${path}`);
+  Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)));
+  const response = await fetch(url, { signal: AbortSignal.timeout(12_000) });
+  if (!response.ok) throw new Error(`Binance public market request failed with ${response.status}`);
+  return response.json() as Promise<any>;
+}
+
+async function getBinanceHistory(symbol: string, endpoint: string, limit: number) {
+  if (symbol === "USDT" || symbol === "USDC") {
+    const now = Math.floor(Date.now() / 1000);
+    return { Data: { Data: Array.from({ length: Math.min(limit, 365) + 1 }, (_, index) => ({
+      time: now - (Math.min(limit, 365) - index) * 86_400,
+      open: 1,
+      high: 1,
+      low: 1,
+      close: 1,
+      volumeto: 0,
+    })) } };
+  }
+  const interval = endpoint === "histominute" ? "1m" : endpoint === "histohour" ? "1h" : "1d";
+  const rows = await binancePublicGet("klines", {
+    symbol: `${symbol}USDT`,
+    interval,
+    limit: Math.min(1000, limit + 1),
+  });
+  return { Data: { Data: rows.map((row: any[]) => ({
+    time: Math.floor(number(row[0]) / 1000),
+    open: number(row[1]),
+    high: number(row[2]),
+    low: number(row[3]),
+    close: number(row[4]),
+    volume: number(row[5]),
+    volumeto: number(row[7]),
+  })) } };
+}
+
 export async function getCryptoHistory(symbol: string, endpoint: string, limit: number, currency = "USD") {
   const allowed = new Set(["histominute", "histohour", "histoday"]);
   const selected = allowed.has(endpoint) ? endpoint : "histoday";
@@ -308,16 +352,23 @@ export async function getCryptoHistory(symbol: string, endpoint: string, limit: 
   const normalizedLimit = Math.min(canonicalLimit, Math.max(1, limit));
   const key = `crypto-history:${selected}:${upperSymbol}:USD`;
   const ttlMs = selected === "histominute" ? 15 * 60_000 : selected === "histohour" ? 60 * 60_000 : env.MARKET_HISTORY_CACHE_SECONDS * 1000;
-  const payload = await persistentCached<any>(key, ttlMs, () => cryptoCompareGet(`v2/${selected}`, {
-    fsym: upperSymbol,
-    tsym: upperCurrency,
-    limit: canonicalLimit,
-    e: "CCCAGG",
-    extraParams: "BoundingCurve",
-  }));
+  const payload = await persistentCached<any>(key, ttlMs, () => getBinanceHistory(upperSymbol, selected, canonicalLimit));
   const rows = payload?.Data?.Data;
   if (!Array.isArray(rows)) return payload;
-  return { ...payload, Data: { ...payload.Data, Data: rows.slice(-(normalizedLimit + 1)) } };
+  const selectedRows = rows.slice(-(normalizedLimit + 1));
+  const live = quoteCache.get(upperSymbol);
+  const lastTime = number(selectedRows.at(-1)?.time) * 1000;
+  if (live?.price && live.time > lastTime) {
+    selectedRows.push({
+      time: Math.floor(live.time / 1000),
+      open: live.open24h || live.price,
+      high: live.high24h || live.price,
+      low: live.low24h || live.price,
+      close: live.price,
+      volumeto: live.volume,
+    });
+  }
+  return { ...payload, Data: { ...payload.Data, Data: selectedRows } };
 }
 
 export async function getTopCrypto(limit = 50, currency = "USD") {
@@ -333,8 +384,29 @@ export async function getCryptoQuotes(symbols: string[], currency = "USD") {
   const upperCurrency = normalizeSymbol(currency);
   if (!normalized.length) return {};
   return cached(`crypto-quotes:${normalized.join(",")}:${upperCurrency}`, env.MARKET_QUOTE_CACHE_SECONDS * 1000, async () => {
-    const payload = await cryptoCompareGet("pricemultifull", { fsyms: normalized.join(","), tsyms: upperCurrency });
-    return payload?.RAW || {};
+    if (upperCurrency !== "USD") throw new Error("USD is the only supported quote currency");
+    const requestSymbols = normalized.filter((symbol) => !["USDT", "USDC", "MATIC"].includes(symbol));
+    const rows = requestSymbols.length
+      ? await binancePublicGet("ticker/24hr", { symbols: JSON.stringify(requestSymbols.map((symbol) => `${symbol}USDT`)) })
+      : [];
+    const result: Record<string, { USD: Record<string, number> }> = {};
+    for (const row of rows) {
+      const symbol = String(row.symbol).replace(/USDT$/, "");
+      result[symbol] = { USD: {
+        PRICE: number(row.lastPrice),
+        CHANGE24HOUR: number(row.priceChange),
+        CHANGEPCT24HOUR: number(row.priceChangePercent),
+        VOLUME24HOURTO: number(row.quoteVolume),
+        HIGH24HOUR: number(row.highPrice),
+        LOW24HOUR: number(row.lowPrice),
+        OPEN24HOUR: number(row.openPrice),
+        LASTUPDATE: Math.floor(Date.now() / 1000),
+      } };
+    }
+    for (const stable of normalized.filter((symbol) => symbol === "USDT" || symbol === "USDC")) {
+      result[stable] = { USD: { PRICE: 1, CHANGE24HOUR: 0, CHANGEPCT24HOUR: 0, VOLUME24HOURTO: 0, HIGH24HOUR: 1, LOW24HOUR: 1, OPEN24HOUR: 1, LASTUPDATE: Math.floor(Date.now() / 1000) } };
+    }
+    return result;
   });
 }
 
@@ -419,7 +491,7 @@ export async function getMarketPrice(symbol: string, assetType = "crypto") {
     low24h: number(raw.LOW24HOUR),
     open24h: number(raw.OPEN24HOUR),
     time: number(raw.LASTUPDATE) * 1000 || Date.now(),
-    source: "coindesk-data",
+    source: "binance-public",
   };
   publish(quote);
   return quote;
@@ -443,6 +515,55 @@ export const marketData = {
   onQuote(listener: QuoteListener) {
     listeners.add(listener);
     return () => listeners.delete(listener);
+  },
+  retainSymbols(symbols: string[]) {
+    const added: string[] = [];
+    for (const value of symbols) {
+      const symbol = normalizeSymbol(value);
+      if (!trackedSymbols.has(symbol)) continue;
+      const count = activeStreamSymbols.get(symbol) || 0;
+      activeStreamSymbols.set(symbol, count + 1);
+      if (count === 0 && !upstreamSubscriptions.has(symbol)) added.push(symbol);
+    }
+    if (added.length && upstream?.readyState === WebSocket.OPEN) {
+      upstream.send(JSON.stringify({ action: "SubAdd", subs: added.map((symbol) => `5~CCCAGG~${symbol}~USD`) }));
+      added.forEach((symbol) => upstreamSubscriptions.add(symbol));
+    }
+  },
+  releaseSymbols(symbols: string[]) {
+    const removed: string[] = [];
+    for (const value of symbols) {
+      const symbol = normalizeSymbol(value);
+      const count = activeStreamSymbols.get(symbol) || 0;
+      if (count > 1) activeStreamSymbols.set(symbol, count - 1);
+      else if (count === 1) {
+        activeStreamSymbols.delete(symbol);
+        if (upstreamSubscriptions.has(symbol)) removed.push(symbol);
+      }
+    }
+    if (removed.length && upstream?.readyState === WebSocket.OPEN) {
+      upstream.send(JSON.stringify({ action: "SubRemove", subs: removed.map((symbol) => `5~CCCAGG~${symbol}~USD`) }));
+      removed.forEach((symbol) => upstreamSubscriptions.delete(symbol));
+    }
+  },
+  async refreshQuotes() {
+    const payload = await getCryptoQuotes([...trackedSymbols]);
+    for (const symbol of trackedSymbols) {
+      const raw = (payload as any)?.[symbol]?.USD;
+      if (!raw?.PRICE) continue;
+      publish({
+        symbol,
+        price: number(raw.PRICE),
+        change: number(raw.CHANGE24HOUR),
+        changePercent: number(raw.CHANGEPCT24HOUR),
+        volume: number(raw.VOLUME24HOURTO),
+        high24h: number(raw.HIGH24HOUR),
+        low24h: number(raw.LOW24HOUR),
+        open24h: number(raw.OPEN24HOUR),
+        time: number(raw.LASTUPDATE) * 1000 || Date.now(),
+        source: "binance-public",
+      });
+    }
   },
   isTracked(symbol: string) {
     return trackedSymbols.has(normalizeSymbol(symbol));

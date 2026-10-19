@@ -12,7 +12,6 @@ import { AssetLogo } from "@/components/common/asset-logo";
 import { PriceAreaChart } from "@/components/charts/price-area-chart";
 import { buildFallbackSeries } from "@/lib/series";
 import { useLiveQuote } from "@/hooks/useLiveQuote";
-import { fetchAssetHistorical } from "@/lib/historical";
 
 interface WatchlistItem {
 	symbol: string;
@@ -38,7 +37,7 @@ function WatchlistRow({
 	onRemove: (symbol: string, e: MouseEvent) => void;
 }) {
 	const isCrypto = item.type === "crypto";
-	const live = useLiveQuote(item.symbol, isCrypto ? "crypto" : "stock");
+	const live = useLiveQuote(item.symbol, isCrypto ? "crypto" : "stock", false);
 	const currentPrice = live.quote?.price ?? item.currentPrice;
 	const changePercent = live.quote?.changePercent ?? item.changePercent;
 	const hasPrice = currentPrice > 0;
@@ -208,37 +207,10 @@ export default function WatchlistPage() {
 				.filter((c: any) => c.symbol !== "USDT" && c.symbol !== "USD")
 				.slice(0, 3);
 
-			// Fetch historical data for all assets in parallel (yearly for maximum spikes)
-			console.log("[WATCHLIST] Fetching historical data for all assets...");
-			const historicalPromises = [
-				...topStocksData.map((stock: any) =>
-					fetchAssetHistorical(stock.symbol, "stock", 365)
-						.then(data => ({ symbol: stock.symbol, data }))
-						.catch(() => ({ symbol: stock.symbol, data: [] }))
-				),
-				...topCryptoData.map((coin: any) =>
-					fetchAssetHistorical(coin.symbol, "crypto", 365)
-						.then(data => ({ symbol: coin.symbol, data }))
-						.catch(() => ({ symbol: coin.symbol, data: [] }))
-				),
-			];
-
-			const historicalResults = await Promise.all(historicalPromises);
-			const historicalMap = Object.fromEntries(
-				historicalResults.map(r => [r.symbol, r.data])
-			);
-
-			// Build watchlist items with real historical data
 			const topStocks = topStocksData.map((stock: any) => {
 				const currentPrice = toNumber(stock.currentPrice, 0);
 				const changePercent = toNumber(stock.changePercent, 0);
-				const historicalData = historicalMap[stock.symbol] || [];
-
-				const chartData = historicalData.length > 0
-					? historicalData
-					: generateFallbackChartData(currentPrice, changePercent, stock.symbol, "stock");
-
-				console.log(`[WATCHLIST] ${stock.symbol} (stock): ${historicalData.length > 0 ? "✅ REAL" : "⚠️ FALLBACK"} data (${chartData.length} points)`);
+				const chartData = generateFallbackChartData(currentPrice, changePercent, stock.symbol, "stock");
 
 				return {
 					symbol: stock.symbol,
@@ -253,13 +225,7 @@ export default function WatchlistPage() {
 			const topCrypto = topCryptoData.map((coin: any) => {
 				const currentPrice = toNumber(coin.price, 0);
 				const changePercent = toNumber(coin.change24h, 0);
-				const historicalData = historicalMap[coin.symbol] || [];
-
-				const chartData = historicalData.length > 0
-					? historicalData
-					: generateFallbackChartData(currentPrice, changePercent, coin.symbol, "crypto");
-
-				console.log(`[WATCHLIST] ${coin.symbol} (crypto): ${historicalData.length > 0 ? "✅ REAL" : "⚠️ FALLBACK"} data (${chartData.length} points)`);
+				const chartData = generateFallbackChartData(currentPrice, changePercent, coin.symbol, "crypto");
 
 				return {
 					symbol: coin.symbol,

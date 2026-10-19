@@ -27,7 +27,6 @@ import { AssetLogo } from "@/components/common/asset-logo";
 import { cn } from "@/lib/utils";
 import { PriceAreaChart } from "@/components/charts/price-area-chart";
 import { toast } from "sonner";
-import { fetchAssetHistorical } from "@/lib/historical";
 
 const toNumber = (val: any, fallback = 0) => {
 	const n = Number(val);
@@ -359,12 +358,9 @@ export default function DashboardPage() {
 			}
 
 			const { totalValue, assetList } = buildPortfolio(userAssets, stocks, cryptos);
-			const assetListWithHistory = await Promise.all(assetList.map(async (asset) => {
-				if (isUsdPeggedAsset(asset.symbol)) return { ...asset, chartData: [{ value: 1 }] };
-				const type = stockList.some((stock: any) => stock.symbol === asset.symbol) ? "stock" : "crypto";
-				const history = await fetchAssetHistorical(asset.symbol, type, 30).catch(() => []);
-				return history.length ? { ...asset, chartData: history } : asset;
-			}));
+			const assetListWithHistory = assetList.map((asset) =>
+				isUsdPeggedAsset(asset.symbol) ? { ...asset, chartData: [{ value: 1 }] } : asset
+			);
 
 			// Calculate buying power from all stablecoins (USDT, USDC, USD)
 			const buyingPower = userAssets

@@ -12,7 +12,6 @@ import { AssetLogo } from "@/components/common/asset-logo";
 import { PriceAreaChart } from "@/components/charts/price-area-chart";
 import { buildFallbackSeries } from "@/lib/series";
 import { useLiveQuote } from "@/hooks/useLiveQuote";
-import { fetchAssetHistorical } from "@/lib/historical";
 
 const toNumber = (val: any, fallback = 0) => {
 	const n = Number(val);
@@ -32,7 +31,7 @@ interface MarketAsset {
 
 function MarketRow({ asset, onNavigate, formatCompact }: { asset: MarketAsset; onNavigate: (path: string) => void; formatCompact: (value?: number) => string }) {
 	const isCrypto = asset.type === "crypto";
-	const live = useLiveQuote(asset.symbol, isCrypto ? "crypto" : "stock");
+	const live = useLiveQuote(asset.symbol, isCrypto ? "crypto" : "stock", false);
 	const currentPrice = live.quote?.price ?? asset.currentPrice;
 	const changePercent = live.quote?.changePercent ?? asset.changePercent;
 	const hasPrice = currentPrice > 0;
@@ -171,42 +170,11 @@ export default function MarketsPage() {
 
 			console.log(`[MARKETS] Fetched ${stockList.length} stocks, ${filteredCryptoList.length} cryptos`);
 
-			// Fetch historical data for top assets only to avoid rate limits (yearly for spikes)
-			const stocksToFetch = stockList.slice(0, 10);
-			const cryptosToFetch = filteredCryptoList.slice(0, 10);
-
-			console.log("[MARKETS] Fetching historical data for top 20 assets...");
-			const historicalPromises = [
-				...stocksToFetch.map((stock: any) =>
-					fetchAssetHistorical(stock.symbol, "stock", 365)
-						.then(data => ({ symbol: stock.symbol, data }))
-						.catch(() => ({ symbol: stock.symbol, data: [] }))
-				),
-				...cryptosToFetch.map((coin: any) =>
-					fetchAssetHistorical(coin.symbol, "crypto", 365)
-						.then(data => ({ symbol: coin.symbol, data }))
-						.catch(() => ({ symbol: coin.symbol, data: [] }))
-				),
-			];
-
-			const historicalResults = await Promise.all(historicalPromises);
-			const historicalMap = Object.fromEntries(
-				historicalResults.map(r => [r.symbol, r.data])
-			);
-
-			// Process stocks with real historical data where available
+			// Overview cards use live quotes without spending one history request per asset.
 			const stockAssets: MarketAsset[] = stockList.map((stock: any) => {
 				const currentPrice = toNumber(stock.currentPrice, 0);
 				const changePercent = toNumber(stock.changePercent, 0);
-				const historicalData = historicalMap[stock.symbol] || [];
-
-				const chartData = historicalData.length > 0
-					? historicalData
-					: generateFallbackChartData(currentPrice, changePercent, stock.symbol, "stock");
-
-				if (historicalMap[stock.symbol] !== undefined) {
-					console.log(`[MARKETS] ${stock.symbol} (stock): ${historicalData.length > 0 ? "✅ REAL" : "⚠️ FALLBACK"} (${chartData.length} pts)`);
-				}
+				const chartData = generateFallbackChartData(currentPrice, changePercent, stock.symbol, "stock");
 
 				return {
 					symbol: stock.symbol,
@@ -220,19 +188,10 @@ export default function MarketsPage() {
 				};
 			});
 
-			// Process crypto with real historical data where available
 			const cryptoAssets: MarketAsset[] = filteredCryptoList.map((coin: any) => {
 				const currentPrice = toNumber(coin.price, 0);
 				const changePercent = toNumber(coin.change24h, 0);
-				const historicalData = historicalMap[coin.symbol] || [];
-
-				const chartData = historicalData.length > 0
-					? historicalData
-					: generateFallbackChartData(currentPrice, changePercent, coin.symbol, "crypto");
-
-				if (historicalMap[coin.symbol] !== undefined) {
-					console.log(`[MARKETS] ${coin.symbol} (crypto): ${historicalData.length > 0 ? "✅ REAL" : "⚠️ FALLBACK"} (${chartData.length} pts)`);
-				}
+				const chartData = generateFallbackChartData(currentPrice, changePercent, coin.symbol, "crypto");
 
 				return {
 					symbol: coin.symbol,

@@ -40,6 +40,9 @@ const defaultStocks = [
 ];
 
 coinsRouter.get("/", async (_req, res) => {
+  await marketData.refreshQuotes().catch((error) => {
+    console.warn("Serving cached crypto quotes:", error instanceof Error ? error.message : error);
+  });
   const configured = await Coin.find().sort({ symbol: 1 }).lean();
   const catalogue = new Map(defaultCoins.map((coin) => [coin.symbol, coin]));
   for (const coin of configured) catalogue.set(coin.symbol, { ...catalogue.get(coin.symbol), ...coin } as any);
@@ -125,7 +128,7 @@ marketRouter.get("/status", (_req, res) => res.json({
   streaming: marketData.status,
   restBudget: marketData.quota,
   restEnabled: env.MARKET_REST_ENABLED,
-  cryptoProvider: "coindesk-data",
+  cryptoProvider: "binance-public + coindesk-stream",
   cryptoConfigured: Boolean(cryptoCompareApiKey),
   stockProvider: "alpha-vantage",
   stockConfigured: Boolean(env.ALPHA_VANTAGE_API_KEY),

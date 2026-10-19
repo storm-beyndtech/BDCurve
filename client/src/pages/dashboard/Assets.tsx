@@ -10,7 +10,6 @@ import { AssetLogo } from "@/components/common/asset-logo";
 import { cn } from "@/lib/utils";
 import { PriceAreaChart } from "@/components/charts/price-area-chart";
 import { useNavigate } from "react-router-dom";
-import { fetchAssetHistorical } from "@/lib/historical";
 
 interface UserAsset {
 	symbol: string;
@@ -213,9 +212,7 @@ export default function AssetsPage() {
 					continue;
 				}
 
-				const history = isUsdPeggedAsset(asset.symbol)
-					? [{ value: 1 }]
-					: await fetchAssetHistorical(asset.symbol, type, 30).catch(() => []);
+				const history = isUsdPeggedAsset(asset.symbol) ? [{ value: 1 }] : [];
 				processedAssets.push({
 					symbol: asset.symbol,
 					name,

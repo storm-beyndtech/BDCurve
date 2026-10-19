@@ -1,8 +1,9 @@
 import { ArrowRight, Check, Landmark, ShieldCheck, WalletCards } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useLiveQuote } from "@/hooks/useLiveQuote";
 import { AssetLogo } from "@/components/common/asset-logo";
+import { apiGet } from "@/lib/api";
 
 const markets = [
 	{ symbol: "BTC", name: "Bitcoin" },
@@ -20,8 +21,9 @@ const formatPrice = (price?: number) => price == null
 	? "—"
 	: new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: price < 10 ? 4 : 2 }).format(price);
 
-function LiveMarketRow({ symbol, name }: { symbol: string; name: string }) {
-	const { quote } = useLiveQuote(symbol, "crypto");
+type HeroQuote = { price: number; changePercent: number };
+
+function LiveMarketRow({ symbol, name, quote }: { symbol: string; name: string; quote?: HeroQuote }) {
 	const change = quote?.changePercent;
 	return (
 		<div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3.5">
@@ -38,8 +40,17 @@ function LiveMarketRow({ symbol, name }: { symbol: string; name: string }) {
 }
 
 export function HeroOverkill() {
-	const { quote: bitcoin, series, status } = useLiveQuote("BTC", "crypto");
-	const recentSeries = series.slice(-12);
+	const [quotes, setQuotes] = useState<Record<string, HeroQuote>>({});
+	useEffect(() => {
+		void apiGet<any[]>("/api/coins").then((coins) => {
+			setQuotes(Object.fromEntries(coins.map((coin) => [coin.symbol, {
+				price: Number(coin.price) || 0,
+				changePercent: Number(coin.changePercent ?? coin.change24h) || 0,
+			}])));
+		}).catch(() => undefined);
+	}, []);
+	const bitcoin = quotes.BTC;
+	const recentSeries: { value: number }[] = [];
 	const values = recentSeries.map((point) => point.value);
 	const low = values.length ? Math.min(...values) : 0;
 	const high = values.length ? Math.max(...values) : 0;
@@ -101,11 +112,11 @@ export function HeroOverkill() {
 							</div>
 							<div className="flex items-center justify-between pb-3">
 								<p className="font-semibold">Markets</p>
-								<p className="flex items-center gap-1 text-xs text-muted-foreground"><span className={`h-1.5 w-1.5 rounded-full ${status === "connected" ? "bg-emerald-500" : "bg-amber-500"}`} /> {status === "connected" ? "Live" : "Connecting"}</p>
+								<p className="flex items-center gap-1 text-xs text-muted-foreground"><span className={`h-1.5 w-1.5 rounded-full ${bitcoin ? "bg-emerald-500" : "bg-amber-500"}`} /> {bitcoin ? "Market data" : "Connecting"}</p>
 							</div>
 							<div className="divide-y divide-border">
 								{markets.map((market) => (
-									<LiveMarketRow key={market.symbol} {...market} />
+									<LiveMarketRow key={market.symbol} {...market} quote={quotes[market.symbol]} />
 								))}
 							</div>
 						</div>

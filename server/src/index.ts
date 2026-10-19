@@ -29,11 +29,13 @@ async function start() {
             const quote = marketData.getQuote(symbol);
             if (quote && socket.readyState === socket.OPEN) socket.send(JSON.stringify({ type: "quote", ...quote }));
           });
+          marketData.retainSymbols(requested);
         }
         if (payload.type === "unsubscribe" && Array.isArray(payload.symbols)) {
-          payload.symbols
+          const removed = payload.symbols
             .map((value: unknown) => String(value).toUpperCase().replace(/[^A-Z0-9]/g, ""))
-            .forEach((symbol: string) => subscribed.delete(symbol));
+            .filter((symbol: string) => subscribed.delete(symbol));
+          marketData.releaseSymbols(removed);
         }
       } catch {
         socket.send(JSON.stringify({ type: "error", message: "Invalid WebSocket message" }));
@@ -41,6 +43,7 @@ async function start() {
     });
 
     socket.on("close", () => {
+      marketData.releaseSymbols([...subscribed]);
       clientSubscriptions.delete(socket);
     });
   });

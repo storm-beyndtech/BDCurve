@@ -12,7 +12,6 @@ import { AssetLogo } from "@/components/common/asset-logo";
 import { PriceAreaChart } from "@/components/charts/price-area-chart";
 import { buildFallbackSeries } from "@/lib/series";
 import { useLiveQuote } from "@/hooks/useLiveQuote";
-import { fetchCryptoHistorical } from "@/lib/historical";
 
 interface Crypto {
 	_id: string;
@@ -77,7 +76,7 @@ function CryptoCard({
 	formatVolume: (v: number) => string;
 	formatMarketCap: (price: number, volume: number) => string;
 }) {
-	const live = useLiveQuote(crypto.symbol, "crypto");
+	const live = useLiveQuote(crypto.symbol, "crypto", false);
 	const currentPrice = live.quote?.price ?? crypto.price;
 	const changePercent = live.quote?.changePercent ?? crypto.change24h;
 	const hasPrice = currentPrice > 0;
@@ -194,42 +193,20 @@ export default function CryptoMarketsPage() {
 			const filteredData = data.filter((c: any) => c.symbol !== "USDT");
 			console.log(`[CRYPTO MARKETS] Fetched ${filteredData.length} cryptos`);
 
-			// Fetch historical data only for coins we don't already have cached
-			// The server deduplicates and persistently caches each history series, so
-			// every card can retain a real chart without repeating provider calls.
-			const symbolsNeedingHistory = filteredData.filter((coin: any) => !getCachedSeries(coin.symbol));
-			let historicalMap: Record<string, { value: number }[]> = {};
-			if (symbolsNeedingHistory.length) {
-				console.log("[CRYPTO MARKETS] Fetching historical data for missing cryptos...");
-				const historicalResults = await Promise.all(
-					symbolsNeedingHistory.map((coin: any) =>
-						fetchCryptoHistorical(coin.symbol, 365)
-							.then(data => ({ symbol: coin.symbol, data }))
-							.catch(() => ({ symbol: coin.symbol, data: [] }))
-					)
-				);
-				historicalMap = Object.fromEntries(historicalResults.map((r) => [r.symbol, r.data]));
-			}
-
-			// Map to Crypto interface with real historical data
+			// List cards do not spend one provider call per asset. They start with a
+			// stable preview and append live WebSocket points while visible.
 			const cryptoList = filteredData.map((coin: any) => {
 				const price = toNumber(coin.price, 0);
 				const change24h = toNumber(coin.change24h, 0);
-				const historicalData = historicalMap[coin.symbol] || [];
 
 				let chartData: { value: number }[] = getCachedSeries(coin.symbol) || [];
 				if (chartData.length === 0) {
-					chartData =
-						historicalData.length > 0
-							? historicalData
-							: generateChartData(coin.symbol, price, change24h, getBandForSymbol(coin.symbol));
+					chartData = generateChartData(coin.symbol, price, change24h, getBandForSymbol(coin.symbol));
 					chartCache.set(coin.symbol, chartData);
 					try {
 						sessionStorage.setItem(`cryptoSeries-${coin.symbol}`, JSON.stringify(chartData));
 					} catch {}
 				}
-
-				console.log(`[CRYPTO MARKETS] ${coin.symbol}: ${historicalData.length > 0 ? "✅ REAL" : "⚠️ FALLBACK"} data (${chartData.length} points)`);
 
 				return {
 					_id: coin._id,

@@ -29,7 +29,7 @@ const schema = z.object({
   MARKET_REST_REQUESTS_PER_HOUR: z.coerce.number().int().min(1).max(1200).default(120),
   MARKET_RATE_LIMIT_RESERVE: z.coerce.number().int().min(0).default(100),
   MARKET_QUOTE_CACHE_SECONDS: z.coerce.number().int().min(30).default(300),
-  MARKET_HISTORY_CACHE_SECONDS: z.coerce.number().int().min(300).default(21600),
+  MARKET_HISTORY_CACHE_SECONDS: z.coerce.number().int().min(300).default(2592000),
   ALPHA_VANTAGE_API_KEY: z.string().optional(),
   ETHEREUM_RPC_URL: z.string().url().default("https://ethereum-rpc.publicnode.com"),
   BSC_RPC_URL: z.string().url().default("https://bsc-rpc.publicnode.com"),
