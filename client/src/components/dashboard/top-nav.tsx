@@ -131,7 +131,7 @@ export function TopNavCompact() {
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-500 to-accent-600 flex items-center justify-center">
           <span className="text-white font-bold text-sm">IG</span>
         </div>
-        <span className="font-semibold">Bounding Curve</span>
+        <span className="font-semibold">BDCurve</span>
       </div>
 
       <EnvironmentSwitcher

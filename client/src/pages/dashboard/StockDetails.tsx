@@ -10,6 +10,7 @@ import { AssetLogo } from "@/components/common/asset-logo";
 import { apiGet } from "@/lib/api";
 import { toast } from "sonner";
 import { buildFallbackSeries } from "@/lib/series";
+import { useLiveQuote } from "@/hooks/useLiveQuote";
 
 type Timeframe = "1D" | "1W" | "1M" | "1Y";
 
@@ -102,6 +103,20 @@ export default function StockDetailsPage() {
 	const [loading, setLoading] = useState(false);
 
 	const upperSymbol = useMemo(() => symbol?.toUpperCase() ?? "", [symbol]);
+	const live = useLiveQuote(upperSymbol, asset?.type || "stock", asset?.type === "crypto");
+
+	useEffect(() => {
+		if (!live.quote || !asset || asset.type !== "crypto") return;
+		setAsset((current) => current ? {
+			...current,
+			currentPrice: live.quote!.price,
+			changePercent: live.quote!.changePercent,
+			volume: live.quote!.volume ?? current.volume,
+			chartData: live.series.length
+				? [...current.chartData.slice(-180), ...live.series.slice(-20).map((point) => ({ value: point.value, time: point.time }))]
+				: current.chartData,
+		} : current);
+	}, [live.quote, live.series]);
 
 	useEffect(() => {
 		if (!upperSymbol) return;

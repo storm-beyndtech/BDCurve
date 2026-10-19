@@ -1,55 +1,26 @@
-﻿import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface BrandLogoProps {
-  /**
-   * Logo size preset
-   * @default "default"
-   */
   size?: "sm" | "default" | "lg";
-  /**
-   * Additional className
-   */
   className?: string;
 }
 
 const sizePresets = {
-  sm: { width: 120, height: 30, className: "h-5" },
-  default: { width: 160, height: 40, className: "h-7" },
-  lg: { width: 200, height: 50, className: "h-10" },
+  sm: { mark: "h-8 w-8", text: "text-lg" },
+  default: { mark: "h-9 w-9", text: "text-xl" },
+  lg: { mark: "h-11 w-11", text: "text-2xl" },
 };
 
 export function BrandLogo({ size = "sm", className }: BrandLogoProps) {
-  const { theme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return (
-      <div
-        className={cn(sizePresets[size].className, "w-auto", className)}
-        style={{ minWidth: sizePresets[size].width }}
-      />
-    );
-  }
-
-  // Use darker logo (logo2.png) for light mode, lighter logo (logo.png) for dark mode
-  const currentTheme = resolvedTheme || theme;
-  const logoSrc = currentTheme === "dark" ? "/logo.png" : "/logo2.png";
+  const preset = sizePresets[size];
 
   return (
-    <img
-      src={logoSrc}
-      alt="Bounding Curve"
-      width={sizePresets[size].width}
-      height={sizePresets[size].height}
-      className={cn(sizePresets[size].className, "w-auto", className)}
-    />
+    <span className={cn("inline-flex items-center gap-2.5", className)} aria-label="BDCurve">
+      <span className={cn("relative flex items-center justify-center rounded-xl bg-foreground text-background", preset.mark)} aria-hidden="true">
+        <span className="text-sm font-black tracking-[-0.16em]">BD</span>
+        <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-primary-600" />
+      </span>
+      <span className={cn("font-semibold tracking-[-0.035em] text-foreground", preset.text)}>BDCurve</span>
+    </span>
   );
 }
-

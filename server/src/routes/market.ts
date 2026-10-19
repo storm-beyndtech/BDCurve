@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { Coin, Stock } from "../models/Market.js";
 import { authenticate, requireAdmin } from "../middleware/auth.js";
-import { getCryptoHistory, getCryptoQuotes, getMarketPrice, getStockHistory, getStockQuote, marketData } from "../services/marketData.js";
+import { getCryptoHistory, getMarketPrice, getStockHistory, getStockQuote, marketData } from "../services/marketData.js";
 import { getLatestBlock, rpcUrls, type RpcNetwork } from "../services/rpc.js";
 import { cryptoCompareApiKey, env } from "../config/env.js";
 
@@ -44,32 +44,22 @@ coinsRouter.get("/", async (_req, res) => {
   const catalogue = new Map(defaultCoins.map((coin) => [coin.symbol, coin]));
   for (const coin of configured) catalogue.set(coin.symbol, { ...catalogue.get(coin.symbol), ...coin } as any);
   const coins = [...catalogue.values()];
-  try {
-    const quotes = await getCryptoQuotes(coins.map((coin) => coin.symbol));
-    return res.json(coins.map((coin: any) => {
-      const symbol = String(coin.symbol).toUpperCase();
-      const raw = quotes?.[symbol]?.USD || {};
-      const live = marketData.getQuote(symbol);
-      return {
-        ...coin,
-        symbol,
-        price: live?.price || Number(raw.PRICE || 0),
-        change24h: live?.changePercent || Number(raw.CHANGEPCT24HOUR || 0),
-        changePercent: live?.changePercent || Number(raw.CHANGEPCT24HOUR || 0),
-        high24h: live?.high24h || Number(raw.HIGH24HOUR || 0),
-        low24h: live?.low24h || Number(raw.LOW24HOUR || 0),
-        open: live?.open24h || Number(raw.OPEN24HOUR || 0),
-        volume24h: live?.volume || Number(raw.VOLUME24HOURTO || 0),
-        marketCap: Number(raw.MKTCAP || 0),
-      };
-    }));
-  } catch (error) {
-    console.error("Unable to refresh crypto list", error);
-    return res.json(coins.map((coin: any) => {
-      const live = marketData.getQuote(coin.symbol);
-      return { ...coin, price: live?.price || coin.price || 0, change24h: live?.changePercent || coin.changePercent || 0 };
-    }));
-  }
+  return res.json(coins.map((coin: any) => {
+    const symbol = String(coin.symbol).toUpperCase();
+    const live = marketData.getQuote(symbol);
+    return {
+      ...coin,
+      symbol,
+      price: live?.price || coin.price || 0,
+      change24h: live?.changePercent || coin.changePercent || 0,
+      changePercent: live?.changePercent || coin.changePercent || 0,
+      high24h: live?.high24h || coin.high24h || 0,
+      low24h: live?.low24h || coin.low24h || 0,
+      open: live?.open24h || coin.open || 0,
+      volume24h: live?.volume || coin.volume24h || 0,
+      marketCap: coin.marketCap || 0,
+    };
+  }));
 });
 coinsRouter.post("/create/:symbol", authenticate, requireAdmin, async (req, res) => {
   const symbol = String(req.params.symbol).toUpperCase();
@@ -133,6 +123,8 @@ marketRouter.get("/crypto/quote", async (req, res) => {
 
 marketRouter.get("/status", (_req, res) => res.json({
   streaming: marketData.status,
+  restBudget: marketData.quota,
+  restEnabled: env.MARKET_REST_ENABLED,
   cryptoProvider: "coindesk-data",
   cryptoConfigured: Boolean(cryptoCompareApiKey),
   stockProvider: "alpha-vantage",

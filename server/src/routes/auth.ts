@@ -113,7 +113,22 @@ router.put("/update-user/:id", authenticate, requireAdmin, async (req, res) => {
 });
 
 router.put("/users/update-profile", authenticate, async (req, res) => {
-  const user = await User.findByIdAndUpdate(req.user!._id, { ...req.body, onboardingCompleted: true }, { new: true, runValidators: true });
+  const allowedFields = [
+    "firstName", "lastName", "phone", "countryCode", "country", "dateOfBirth", "dob",
+    "houseNo", "streetAddress", "city", "province", "zipCode", "yearsTrading",
+    "tradingFrequency", "instruments", "knowledgeLevel", "preferredMarkets",
+    "tradingPlatforms", "annualIncome", "incomeSource", "taxResidency",
+  ] as const;
+  const updates = Object.fromEntries(
+    allowedFields.filter((field) => Object.prototype.hasOwnProperty.call(req.body, field)).map((field) => [field, req.body[field]]),
+  );
+  const firstName = String(updates.firstName ?? req.user!.firstName ?? "").trim();
+  const lastName = String(updates.lastName ?? req.user!.lastName ?? "").trim();
+  const user = await User.findByIdAndUpdate(
+    req.user!._id,
+    { ...updates, name: { first: firstName, last: lastName, full: `${firstName} ${lastName}`.trim() }, onboardingCompleted: true },
+    { new: true, runValidators: true },
+  );
   res.json({ user });
 });
 

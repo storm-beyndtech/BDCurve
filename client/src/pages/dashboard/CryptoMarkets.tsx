@@ -180,8 +180,8 @@ export default function CryptoMarketsPage() {
 	useEffect(() => {
 		fetchCryptos();
 
-		// Refresh data every 10 seconds
-		const interval = setInterval(fetchCryptos, 10000);
+		// The server caches provider quotes; avoid wasteful browser polling.
+		const interval = setInterval(fetchCryptos, 60000);
 		return () => clearInterval(interval);
 	}, []);
 
@@ -195,6 +195,8 @@ export default function CryptoMarketsPage() {
 			console.log(`[CRYPTO MARKETS] Fetched ${filteredData.length} cryptos`);
 
 			// Fetch historical data only for coins we don't already have cached
+			// The server deduplicates and persistently caches each history series, so
+			// every card can retain a real chart without repeating provider calls.
 			const symbolsNeedingHistory = filteredData.filter((coin: any) => !getCachedSeries(coin.symbol));
 			let historicalMap: Record<string, { value: number }[]> = {};
 			if (symbolsNeedingHistory.length) {

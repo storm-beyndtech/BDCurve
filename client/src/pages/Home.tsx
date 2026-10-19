@@ -213,20 +213,6 @@ const mockAssetCategories: AssetCategory[] = [
 		color: "amber",
 		href: "/products/commodities",
 	},
-	{
-		id: "etfs",
-		name: "ETFs",
-		description: "Commission-free ETF trading with access to thousands of funds across all sectors.",
-		icon: Wallet,
-		stats: {
-			available: "2,000+",
-			volume24h: "$5.7M",
-			topGainer: "+3.2%",
-		},
-		features: ["Zero commissions", "Diversified portfolios", "Fractional shares available"],
-		color: "blue",
-		href: "/products/etfs",
-	},
 ];
 
 // Use cases for the homepage - trading platform

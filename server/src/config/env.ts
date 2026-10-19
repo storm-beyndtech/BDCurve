@@ -22,6 +22,14 @@ const schema = z.object({
   MARKET_DATA_API_KEY: z.string().optional(),
   CRYPTOCOMPARE_API_KEY: z.string().optional(),
   COINDESK_DATA_API_KEY: z.string().optional(),
+  MARKET_STREAM_ENABLED: z.string().transform((value) => value === "true").default(true),
+  MARKET_REST_ENABLED: z.string().transform((value) => value === "true").default(true),
+  MARKET_STREAM_SYMBOLS: z.string().default("BTC,ETH,SOL,XRP,ADA,DOGE,BNB,AVAX,TRX,LINK,DOT,MATIC,LTC,BCH,ATOM,NEAR,APT,ARB,FIL,ALGO,USDT,USDC"),
+  MARKET_STREAM_MAX_SYMBOLS: z.coerce.number().int().min(1).max(600).default(100),
+  MARKET_REST_REQUESTS_PER_HOUR: z.coerce.number().int().min(1).max(1200).default(120),
+  MARKET_RATE_LIMIT_RESERVE: z.coerce.number().int().min(0).default(100),
+  MARKET_QUOTE_CACHE_SECONDS: z.coerce.number().int().min(30).default(300),
+  MARKET_HISTORY_CACHE_SECONDS: z.coerce.number().int().min(300).default(21600),
   ALPHA_VANTAGE_API_KEY: z.string().optional(),
   ETHEREUM_RPC_URL: z.string().url().default("https://ethereum-rpc.publicnode.com"),
   BSC_RPC_URL: z.string().url().default("https://bsc-rpc.publicnode.com"),
@@ -38,3 +46,5 @@ const schema = z.object({
 export const env = schema.parse(process.env);
 export const allowedOrigins = env.CLIENT_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean);
 export const cryptoCompareApiKey = env.CRYPTOCOMPARE_API_KEY || env.COINDESK_DATA_API_KEY || env.MARKET_DATA_API_KEY;
+export const marketStreamSymbols = [...new Set(env.MARKET_STREAM_SYMBOLS.split(",").map((symbol) => symbol.trim().toUpperCase().replace(/[^A-Z0-9]/g, "")).filter(Boolean))]
+  .slice(0, env.MARKET_STREAM_MAX_SYMBOLS);

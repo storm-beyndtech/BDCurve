@@ -1,218 +1,120 @@
-﻿import * as React from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { ArrowRight, Check, Landmark, ShieldCheck, WalletCards } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { MarketingBlurOrbs, HeroOrbit, HeroNetworkVisual } from "@/components/marketing/visuals";
-import { ArrowRight, Globe, Shield, CheckCircle2, Sparkles } from "lucide-react";
-import heroAsset from "@/assets/methods.svg";
-const trustIndicators = [
-	{
-		icon: Shield,
-		text: "FINRA & SIPC Protected",
-	},
-	{
-		icon: Globe,
-		text: "9,000+ Stocks",
-	},
-	{
-		icon: CheckCircle2,
-		text: "99.994% Uptime",
-	},
+import { useLiveQuote } from "@/hooks/useLiveQuote";
+
+const markets = [
+	{ symbol: "BTC", name: "Bitcoin" },
+	{ symbol: "ETH", name: "Ethereum" },
+	{ symbol: "SOL", name: "Solana" },
 ];
 
-export function HeroOverkill() {
-	const { scrollY } = useScroll();
-	const y = useTransform(scrollY, [0, 500], [0, 150]);
-	const opacity = useTransform(scrollY, [0, 300], [1, 0]);
+const capabilities = [
+	{ icon: Landmark, label: "Traditional markets" },
+	{ icon: WalletCards, label: "On-chain assets" },
+	{ icon: ShieldCheck, label: "One secure account" },
+];
 
+const formatPrice = (price?: number) => price == null
+	? "—"
+	: new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: price < 10 ? 4 : 2 }).format(price);
+
+function LiveMarketRow({ symbol, name }: { symbol: string; name: string }) {
+	const { quote } = useLiveQuote(symbol, "crypto");
+	const change = quote?.changePercent;
 	return (
-		<section className="relative min-h-[90vh] flex items-center py-20 lg:py-0">
-			{/* Background Visual Layers */}
-			<div className="absolute inset-0 -z-10">
-				<MarketingBlurOrbs opacity={0.15}/>
-
-				{/* Classic Orbital Rings */}
-				<HeroOrbit size="lg" opacity={0.35}/>
+		<div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3.5">
+			<div className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-muted/50 text-xs font-bold">{symbol.slice(0, 2)}</div>
+			<div><p className="text-sm font-semibold">{symbol}</p><p className="text-xs text-muted-foreground">{name}</p></div>
+			<div className="text-right">
+				<p className="text-sm font-medium tabular-nums">{formatPrice(quote?.price)}</p>
+				<p className={change == null ? "text-xs text-muted-foreground" : `text-xs font-medium ${change >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+					{change == null ? "Waiting for quote" : `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`}
+				</p>
 			</div>
-
-			{/* Content Container */}
-			<motion.div className="w-full max-w-[1200px] mx-auto max-sm:px-6" style={{ opacity }}>
-				<div className="flex items-center justify-between gap-8 lg:gap-12 min-h-[80vh]">
-					{/* Left Column: Content */}
-					<motion.div
-						className="flex-1 space-y-10 z-10 max-w-[600px]"
-						initial={{ opacity: 0, x: -30 }}
-						animate={{ opacity: 1, x: 0 }}
-						transition={{ duration: 0.8, ease: "easeOut" }}
-					>
-						{/* Announcement Badge */}
-						<motion.div
-							initial={{ opacity: 0, y: 20 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ duration: 0.6, delay: 0.2 }}
-						>
-							<Badge variant="glass" className="shadow-depth gap-2 px-4 py-1.5">
-								<Sparkles className="h-3.5 w-3.5 text-primary-500"/>
-								<span>Commission-free investing</span>
-							</Badge>
-						</motion.div>
-
-						{/* Main Headline */}
-						<motion.div
-							className="space-y-6"
-							initial={{ opacity: 0, y: 20 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ duration: 0.8, delay: 0.3 }}
-						>
-							<h1 className="text-[2.2rem] md:text-[3.8rem]  font-bold font-mono leading-[1.3] sm:leading-[1.1] tracking-tight">
-								Investing for those who{" "}
-								<span className="text-primary-600">
-									take it seriously
-								</span>
-							</h1>
-						</motion.div>
-
-						{/* Subheadline */}
-						<motion.p
-							className="text-lg text-muted-foreground max-w-lg leading-relaxed"
-							initial={{ opacity: 0, y: 20 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ duration: 0.8, delay: 0.4 }}
-						>
-							Trade stocks, ETFs, options, and crypto with zero commissions. AI-powered insights, professional tools, and 24/7 support to help you invest smarter.
-						</motion.p>
-
-						{/* CTA Buttons */}
-						<motion.div
-							className="flex flex-col sm:flex-row gap-4"
-							initial={{ opacity: 0, y: 20 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ duration: 0.8, delay: 0.5 }}
-						>
-							<Link to="/signup">
-								<Button
-									variant="primary"
-									size="xl"
-									className="gap-2 group"
-								>
-									<span>Start investing now</span>
-									<ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1"/>
-								</Button>
-							</Link>
-
-							<Link to="/products">
-								<Button variant="glass" size="xl" className="gap-2 shadow-depth hover:shadow-depth-md">
-									<span>View all products</span>
-									<Sparkles className="h-4 w-4"/>
-								</Button>
-							</Link>
-						</motion.div>
-
-						{/* Trust Indicators */}
-						<motion.div
-							className="flex flex-wrap items-center gap-6 pt-4"
-							initial={{ opacity: 0 }}
-							animate={{ opacity: 1 }}
-							transition={{ duration: 0.8, delay: 0.6 }}
-						>
-							{trustIndicators.map((indicator, index) => (
-								<motion.div
-									key={indicator.text}
-									className="flex items-center gap-2"
-									initial={{ opacity: 0, x: -10 }}
-									animate={{ opacity: 1, x: 0 }}
-									transition={{ duration: 0.5, delay: 0.7 + index * 0.1 }}
-								>
-									<div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary-500/10">
-										<indicator.icon className="h-4 w-4 text-primary-600"/>
-									</div>
-									<span className="text-sm font-medium text-muted-foreground">{indicator.text}</span>
-								</motion.div>
-							))}
-						</motion.div>
-					</motion.div>
-
-					{/* Right Column: 3D Floating Card Clusters */}
-					<motion.div
-						className="relative hidden lg:block flex-shrink-0 h-[700px] w-full lg:w-[450px] xl:w-[550px]"
-						style={{ y }}
-					>
-						{/* Animated Network Visual Background */}
-						<div className="absolute inset-0 scale-125 opacity-70">
-							<HeroNetworkVisual/>
-						</div>
-
-						<div className="absolute inset-0 flex items-center justify-center">
-							<img
-								src={heroAsset}
-								alt="heroAsset"
-								width={400}
-								height={700}
-								className="w-full h-auto object-contain"
-							/>
-						</div>
-
-						{/* Decorative Elements */}
-						<motion.div
-							className="absolute top-1/4 left-1/4 w-40 h-40 rounded-full bg-primary-500/8 blur-3xl"
-							animate={{
-								scale: [1, 1.2, 1],
-								opacity: [0.3, 0.5, 0.3],
-							}}
-							transition={{
-								duration: 8,
-								repeat: Infinity,
-								ease: "easeInOut",
-							}}/>
-
-						<motion.div
-							className="absolute bottom-1/3 right-1/4 w-48 h-48 rounded-full bg-accent-500/6 blur-3xl"
-							animate={{
-								scale: [1, 1.3, 1],
-								opacity: [0.2, 0.4, 0.2],
-							}}
-							transition={{
-								duration: 10,
-								repeat: Infinity,
-								ease: "easeInOut",
-								delay: 2,
-							}}/>
-
-						{/* Floating Particles - Fixed positions to avoid hydration mismatch */}
-						{[
-							{ left: 25, top: 30 },
-							{ left: 45, top: 65 },
-							{ left: 70, top: 40 },
-							{ left: 35, top: 75 },
-							{ left: 60, top: 50 },
-							{ left: 80, top: 25 },
-						].map((pos, i) => (
-							<motion.div
-								key={i}
-								className="absolute w-1 h-1 rounded-full bg-primary-500/30"
-								style={{
-									left: `${pos.left}%`,
-									top: `${pos.top}%`,
-								}}
-								animate={{
-									y: [0, -30, 0],
-									opacity: [0, 1, 0],
-								}}
-								transition={{
-									duration: 3 + i * 0.3,
-									repeat: Infinity,
-									delay: i * 0.5,
-									ease: "easeInOut",
-								}}/>
-						))}
-					</motion.div>
-				</div>
-			</motion.div>
-
-			{/* Bottom Gradient Fade */}
-			<div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-background/80 to-transparent pointer-events-none"/>
-		</section>
+		</div>
 	);
 }
 
+export function HeroOverkill() {
+	const { quote: bitcoin, series, status } = useLiveQuote("BTC", "crypto");
+	const recentSeries = series.slice(-12);
+	const values = recentSeries.map((point) => point.value);
+	const low = values.length ? Math.min(...values) : 0;
+	const high = values.length ? Math.max(...values) : 0;
+	const range = Math.max(high - low, high * 0.001, 1);
+	const chartHeights = values.length >= 4
+		? values.map((value) => 28 + ((value - low) / range) * 72)
+		: [34, 42, 39, 48, 52, 50, 57, 61, 59, 66, 70, 74];
+
+	return (
+		<section className="border-b border-border bg-background">
+			<div className="container-wide container-padding mx-auto grid min-h-[calc(100vh-4rem)] items-center gap-14 py-20 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
+				<div className="max-w-2xl">
+					<div className="mb-7 inline-flex items-center gap-2 rounded-full border border-border bg-muted/40 px-3 py-1.5 text-sm font-medium text-muted-foreground">
+						<span className="h-2 w-2 rounded-full bg-primary-600" aria-hidden="true" />
+						One account. Global opportunity.
+					</div>
+					<h1 className="max-w-[11ch] text-5xl font-semibold leading-[0.98] tracking-[-0.045em] text-foreground sm:text-6xl lg:text-7xl">
+						TradFi meets on-chain.
+					</h1>
+					<p className="mt-7 max-w-xl text-lg leading-8 text-muted-foreground sm:text-xl">
+						Access stocks and digital assets through one clear, professional platform built for how markets move now.
+					</p>
+					<div className="mt-9 flex flex-col gap-3 sm:flex-row">
+						<Link to="/signup">
+							<Button variant="primary" size="xl" className="w-full gap-2 sm:w-auto">
+								Open an account <ArrowRight className="h-4 w-4" />
+							</Button>
+						</Link>
+						<Link to="/products">
+							<Button variant="outline" size="xl" className="w-full sm:w-auto">Explore markets</Button>
+						</Link>
+					</div>
+					<div className="mt-10 grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
+						{capabilities.map(({ icon: Icon, label }) => (
+							<div key={label} className="flex items-center gap-2">
+								<Icon className="h-4 w-4 text-primary-600" />
+								<span>{label}</span>
+							</div>
+						))}
+					</div>
+				</div>
+
+				<div className="relative mx-auto w-full max-w-xl">
+					<div className="overflow-hidden rounded-3xl border border-border bg-card shadow-2xl shadow-black/10 dark:shadow-black/30">
+						<div className="flex items-center justify-between border-b border-border px-6 py-5">
+							<div>
+								<p className="text-sm text-muted-foreground">Bitcoin / U.S. dollar</p>
+								<p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">{formatPrice(bitcoin?.price)}</p>
+							</div>
+							<div className="rounded-full bg-primary-500/10 px-3 py-1 text-sm font-semibold text-primary-600">
+								{bitcoin ? `${bitcoin.changePercent >= 0 ? "+" : ""}${bitcoin.changePercent.toFixed(2)}%` : "Connecting"}
+							</div>
+						</div>
+						<div className="px-6 py-6">
+							<div className="mb-5 flex h-32 items-end gap-2 border-b border-border pb-1" aria-label="Portfolio performance illustration">
+								{chartHeights.map((height, index) => (
+									<div key={index} className={`flex-1 rounded-t-sm ${values.length >= 4 ? "bg-primary-600/80" : "bg-muted"}`} style={{ height: `${height}%` }} />
+								))}
+							</div>
+							<div className="flex items-center justify-between pb-3">
+								<p className="font-semibold">Markets</p>
+								<p className="flex items-center gap-1 text-xs text-muted-foreground"><span className={`h-1.5 w-1.5 rounded-full ${status === "connected" ? "bg-emerald-500" : "bg-amber-500"}`} /> {status === "connected" ? "Live" : "Connecting"}</p>
+							</div>
+							<div className="divide-y divide-border">
+								{markets.map((market) => (
+									<LiveMarketRow key={market.symbol} {...market} />
+								))}
+							</div>
+						</div>
+					</div>
+					<div className="mx-auto -mt-5 flex w-[88%] items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3 shadow-lg">
+						<div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-500/10"><Check className="h-4 w-4 text-primary-600" /></div>
+						<div><p className="text-sm font-semibold">Built for confident decisions</p><p className="text-xs text-muted-foreground">Live market data in one focused workspace</p></div>
+					</div>
+				</div>
+			</div>
+		</section>
+	);
+}

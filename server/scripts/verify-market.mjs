@@ -3,6 +3,11 @@ import WebSocket from "ws";
 
 dotenv.config({ quiet: true });
 
+if (process.env.ALLOW_MARKET_LIVE_TEST !== "true") {
+  console.log("Live market verification skipped. Set ALLOW_MARKET_LIVE_TEST=true for a deliberate billable test.");
+  process.exit(0);
+}
+
 const apiKey = process.env.CRYPTOCOMPARE_API_KEY
   || process.env.COINDESK_DATA_API_KEY
   || process.env.MARKET_DATA_API_KEY;

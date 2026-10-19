@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { apiGet, apiPost } from "@/lib/api";
 import { toast } from "sonner";
+import { useLiveQuote } from "@/hooks/useLiveQuote";
 
 interface Asset {
 	symbol: string;
@@ -45,6 +46,23 @@ export default function TradePage() {
 
 	// User balance (USDT for buying)
 	const [usdtBalance, setUsdtBalance] = useState<number>(0);
+	const live = useLiveQuote(
+		selectedAsset?.symbol || "",
+		assetType,
+		assetType === "crypto" && Boolean(selectedAsset),
+	);
+
+	useEffect(() => {
+		if (!live.quote || !selectedAsset || selectedAsset.assetType !== "crypto") return;
+		setSelectedAsset((current) => current ? {
+			...current,
+			currentPrice: live.quote!.price,
+			changePercent: live.quote!.changePercent,
+			chartData: live.series.length
+				? [...current.chartData.slice(-180), ...live.series.slice(-20).map((point) => ({ value: point.value }))]
+				: current.chartData,
+		} : current);
+	}, [live.quote, live.series]);
 
 	useEffect(() => {
 		fetchAssets();

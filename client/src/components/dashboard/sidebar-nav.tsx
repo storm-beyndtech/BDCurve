@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
+import { BrandLogo } from "@/components/layout/brand-logo";
 
 interface NavItem {
 	label: string;
@@ -134,15 +135,7 @@ export function SidebarNav() {
 				{/* Logo */}
 				<div className="flex h-16 items-center border-b border-border/50 px-6 flex-shrink-0">
 					<Link to="/dashboard" className="flex items-center">
-						<div className="relative w-auto h-6">
-							<img
-								src="/logo2.png"
-								alt="Bounding Curve"
-								width={90}
-								height={24}
-								className="h-full w-auto object-contain dark:invert"
-							/>
-						</div>
+						<BrandLogo size="sm" />
 					</Link>
 				</div>
 
@@ -307,15 +300,7 @@ export function MobileSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: (
 					{/* Logo */}
 					<div className="flex h-16 items-center border-b border-border/50 px-6">
 						<Link to="/dashboard" className="flex items-center">
-							<div className="relative w-auto h-6">
-								<img
-									src="/logo2.png"
-									alt="Bounding Curve"
-									width={90}
-									height={24}
-									className="h-full w-auto object-contain dark:invert"
-								/>
-							</div>
+							<BrandLogo size="sm" />
 						</Link>
 					</div>
 

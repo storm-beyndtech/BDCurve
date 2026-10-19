@@ -1,5 +1,6 @@
 import WebSocket from "ws";
-import { cryptoCompareApiKey, env } from "../config/env.js";
+import { cryptoCompareApiKey, env, marketStreamSymbols } from "../config/env.js";
+import { MarketHistoryCache, MarketSnapshot } from "../models/MarketCache.js";
 
 export type MarketQuote = {
   symbol: string;
@@ -15,74 +16,222 @@ export type MarketQuote = {
 };
 
 type QuoteListener = (quote: MarketQuote) => void;
+type ServiceError = Error & { status?: number };
+type RateLimitState = {
+  limit?: number;
+  remaining?: number;
+  resetAt?: number;
+  updatedAt?: number;
+  source: "rest-headers" | "stream-welcome" | "local";
+};
 
-const cryptoSymbols = [
-  "BTC", "ETH", "SOL", "XRP", "ADA", "DOGE", "BNB", "AVAX", "TRX", "LINK",
-  "DOT", "MATIC", "LTC", "BCH", "ATOM", "NEAR", "APT", "ARB", "FIL", "ALGO", "USDT", "USDC",
-];
-
+const HOUR_MS = 60 * 60_000;
+const SNAPSHOT_WRITE_INTERVAL_MS = 60_000;
+const MAX_RESPONSE_CACHE_ENTRIES = 256;
 const number = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+const normalizeSymbol = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+const firstInteger = (value: string | null) => {
+  const match = value?.match(/\d+/);
+  return match ? Number(match[0]) : undefined;
+};
 
-const cache = new Map<string, MarketQuote>();
+const quoteCache = new Map<string, MarketQuote>();
 const responseCache = new Map<string, { expiresAt: number; value: unknown }>();
+const inFlight = new Map<string, Promise<unknown>>();
 const listeners = new Set<QuoteListener>();
-const subscriptions = new Set(cryptoSymbols);
+const trackedSymbols = new Set(marketStreamSymbols);
+const lastSnapshotWrites = new Map<string, number>();
+
 let upstream: WebSocket | null = null;
 let reconnectTimer: NodeJS.Timeout | undefined;
+let watchdogTimer: NodeJS.Timeout | undefined;
 let reconnectAttempt = 0;
-let stopped = false;
+let stopped = true;
+let streamAuthFailed = false;
+let streamBackoffUntil = 0;
+let lastStreamMessageAt = 0;
+let budgetWindowStartedAt = Date.now();
+let budgetUsed = 0;
+let restRateLimit: RateLimitState = { source: "local" };
+let streamRateLimit: RateLimitState = { source: "stream-welcome" };
 
-function publish(quote: MarketQuote) {
-  cache.set(quote.symbol, quote);
+function persistSnapshot(quote: MarketQuote) {
+  const lastWrite = lastSnapshotWrites.get(quote.symbol) || 0;
+  if (Date.now() - lastWrite < SNAPSHOT_WRITE_INTERVAL_MS) return;
+  lastSnapshotWrites.set(quote.symbol, Date.now());
+  void MarketSnapshot.findOneAndUpdate(
+    { symbol: quote.symbol },
+    { symbol: quote.symbol, quote },
+    { upsert: true, new: true },
+  ).catch((error) => console.error(`Unable to persist ${quote.symbol} market snapshot`, error));
+}
+
+function publish(quote: MarketQuote, persist = true) {
+  quoteCache.set(quote.symbol, quote);
+  if (persist) persistSnapshot(quote);
   for (const listener of listeners) listener(quote);
 }
 
-async function cached<T>(key: string, ttlMs: number, loader: () => Promise<T>): Promise<T> {
-  const existing = responseCache.get(key);
-  if (existing && existing.expiresAt > Date.now()) return existing.value as T;
-  const value = await loader();
-  responseCache.set(key, { expiresAt: Date.now() + ttlMs, value });
-  return value;
+async function loadSnapshots() {
+  const snapshots = await MarketSnapshot.find({}).lean();
+  for (const snapshot of snapshots) {
+    const quote = snapshot.quote as MarketQuote;
+    if (quote?.symbol && quote.price > 0) publish(quote, false);
+  }
 }
 
-function websocketUrl() {
-  const url = new URL("wss://streamer.cryptocompare.com/v2");
-  if (cryptoCompareApiKey) url.searchParams.set("api_key", cryptoCompareApiKey);
-  return url.toString();
+async function cached<T>(key: string, ttlMs: number, loader: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  for (const [cachedKey, entry] of responseCache) {
+    if (entry.expiresAt <= now) responseCache.delete(cachedKey);
+  }
+  const existing = responseCache.get(key);
+  if (existing && existing.expiresAt > now) return existing.value as T;
+  const pending = inFlight.get(key);
+  if (pending) return pending as Promise<T>;
+
+  const request = loader()
+    .then((value) => {
+      while (responseCache.size >= MAX_RESPONSE_CACHE_ENTRIES) {
+        const oldestKey = responseCache.keys().next().value as string | undefined;
+        if (!oldestKey) break;
+        responseCache.delete(oldestKey);
+      }
+      responseCache.set(key, { expiresAt: Date.now() + ttlMs, value });
+      return value;
+    })
+    .finally(() => inFlight.delete(key));
+  inFlight.set(key, request);
+  return request;
+}
+
+async function persistentCached<T>(key: string, ttlMs: number, loader: () => Promise<T>): Promise<T> {
+  return cached(key, ttlMs, async () => {
+    const stored = await MarketHistoryCache.findOne({ key, expiresAt: { $gt: new Date() } }).lean();
+    if (stored) return stored.payload as T;
+    const value = await loader();
+    await MarketHistoryCache.findOneAndUpdate(
+      { key },
+      { key, payload: value, expiresAt: new Date(Date.now() + ttlMs) },
+      { upsert: true, new: true },
+    );
+    return value;
+  });
+}
+
+function consumeLocalRestBudget() {
+  const now = Date.now();
+  if (now - budgetWindowStartedAt >= HOUR_MS) {
+    budgetWindowStartedAt = now;
+    budgetUsed = 0;
+  }
+  if (restRateLimit.remaining !== undefined && restRateLimit.remaining <= env.MARKET_RATE_LIMIT_RESERVE) {
+    const error = new Error("Market-data reserve reached; cached data remains available until the provider resets") as ServiceError;
+    error.status = 429;
+    throw error;
+  }
+  if (budgetUsed >= env.MARKET_REST_REQUESTS_PER_HOUR) {
+    const error = new Error("Local market-data safety limit reached; cached data remains available") as ServiceError;
+    error.status = 429;
+    throw error;
+  }
+  budgetUsed += 1;
+}
+
+function updateRestRateLimit(headers: Headers) {
+  const remaining = firstInteger(headers.get("x-ratelimit-remaining"));
+  const limit = firstInteger(headers.get("x-ratelimit-limit"));
+  const resetSeconds = firstInteger(headers.get("x-ratelimit-reset"));
+  if (remaining === undefined && limit === undefined) return;
+  restRateLimit = {
+    remaining,
+    limit,
+    resetAt: resetSeconds === undefined ? undefined : Date.now() + resetSeconds * 1000,
+    updatedAt: Date.now(),
+    source: "rest-headers",
+  };
+}
+
+function updateStreamRateLimit(data: Record<string, unknown>) {
+  const remaining = number(data.RATELIMIT_REMAINING_MONTH);
+  const limit = number(data.RATELIMIT_MAX_MONTH);
+  streamRateLimit = {
+    remaining: remaining || undefined,
+    limit: limit || undefined,
+    updatedAt: Date.now(),
+    source: "stream-welcome",
+  };
 }
 
 function scheduleReconnect() {
-  if (stopped || reconnectTimer) return;
-  const delay = Math.min(30_000, 1_000 * 2 ** reconnectAttempt++);
+  if (stopped || streamAuthFailed || reconnectTimer || !env.MARKET_STREAM_ENABLED) return;
+  const exponentialDelay = Math.min(60_000, 5_000 * 2 ** reconnectAttempt++);
+  const delay = Math.max(exponentialDelay, streamBackoffUntil - Date.now(), 5_000);
   reconnectTimer = setTimeout(() => {
     reconnectTimer = undefined;
     connect();
-  }, delay);
+  }, delay + Math.floor(Math.random() * 1_000));
+}
+
+function setupWatchdog() {
+  if (watchdogTimer) clearInterval(watchdogTimer);
+  watchdogTimer = setInterval(() => {
+    if (upstream?.readyState === WebSocket.OPEN && Date.now() - lastStreamMessageAt > 130_000) {
+      console.warn("CoinDesk Data stream heartbeat is stale; reconnecting once");
+      upstream.terminate();
+    }
+  }, 60_000);
 }
 
 function connect() {
-  if (!cryptoCompareApiKey || stopped || upstream?.readyState === WebSocket.OPEN || upstream?.readyState === WebSocket.CONNECTING) return;
-  upstream = new WebSocket(websocketUrl());
+  if (!env.MARKET_STREAM_ENABLED || !cryptoCompareApiKey || stopped || streamAuthFailed || trackedSymbols.size === 0) return;
+  if (upstream?.readyState === WebSocket.OPEN || upstream?.readyState === WebSocket.CONNECTING) return;
+
+  upstream = new WebSocket("wss://streamer.cryptocompare.com/v2", {
+    headers: { authorization: `Apikey ${cryptoCompareApiKey}` },
+  });
   upstream.on("open", () => {
     reconnectAttempt = 0;
+    lastStreamMessageAt = Date.now();
     upstream?.send(JSON.stringify({
       action: "SubAdd",
-      subs: [...subscriptions].map((symbol) => `5~CCCAGG~${symbol}~USD`),
+      subs: [...trackedSymbols].map((symbol) => `5~CCCAGG~${symbol}~USD`),
     }));
+    setupWatchdog();
   });
   upstream.on("message", (raw) => {
+    lastStreamMessageAt = Date.now();
     try {
       const data = JSON.parse(String(raw)) as Record<string, unknown>;
-      if (["401", "429", "500"].includes(String(data.TYPE))) {
-        console.error("CoinDesk Data stream rejected a request", data.MESSAGE || data);
+      const type = String(data.TYPE);
+      if (type === "20") {
+        updateStreamRateLimit(data);
         return;
       }
-      if (String(data.TYPE) !== "5" || !data.FROMSYMBOL) return;
-      const symbol = String(data.FROMSYMBOL).toUpperCase();
-      const previous = cache.get(symbol);
+      if (type === "401") {
+        streamAuthFailed = true;
+        console.error("CoinDesk Data stream authorization failed; automatic reconnect is paused");
+        upstream?.close();
+        return;
+      }
+      if (type === "429") {
+        streamBackoffUntil = Date.now() + 60_000;
+        console.warn("CoinDesk Data socket rate limit reached; retrying after cooldown");
+        upstream?.close();
+        return;
+      }
+      if (type === "500") {
+        console.error("CoinDesk Data stream rejected a subscription");
+        return;
+      }
+      if (type !== "5" || !data.FROMSYMBOL) return;
+
+      const symbol = normalizeSymbol(String(data.FROMSYMBOL));
+      if (!trackedSymbols.has(symbol)) return;
+      const previous = quoteCache.get(symbol);
       const price = number(data.PRICE) || previous?.price || 0;
       if (!price) return;
       publish({
@@ -104,23 +253,37 @@ function connect() {
   upstream.on("error", (error) => console.error("CoinDesk Data stream error", error.message));
   upstream.on("close", () => {
     upstream = null;
+    if (watchdogTimer) clearInterval(watchdogTimer);
+    watchdogTimer = undefined;
     scheduleReconnect();
   });
 }
 
 async function cryptoCompareGet(path: string, params: Record<string, string | number>) {
-  if (!cryptoCompareApiKey) {
-    const error = new Error("CoinDesk Data/CryptoCompare API key is not configured") as Error & { status: number };
+  if (!env.MARKET_REST_ENABLED) {
+    const error = new Error("CoinDesk Data REST access is disabled") as ServiceError;
     error.status = 503;
     throw error;
   }
+  if (!cryptoCompareApiKey) {
+    const error = new Error("CoinDesk Data/CryptoCompare API key is not configured") as ServiceError;
+    error.status = 503;
+    throw error;
+  }
+
+  consumeLocalRestBudget();
   const url = new URL(`https://min-api.cryptocompare.com/data/${path}`);
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)));
   const response = await fetch(url, {
     headers: { authorization: `Apikey ${cryptoCompareApiKey}` },
     signal: AbortSignal.timeout(12_000),
   });
-  if (!response.ok) throw new Error(`CoinDesk Data request failed with ${response.status}`);
+  updateRestRateLimit(response.headers);
+  if (!response.ok) {
+    const error = new Error(`CoinDesk Data request failed with ${response.status}`) as ServiceError;
+    error.status = response.status;
+    throw error;
+  }
   const payload = await response.json() as any;
   if (payload?.Response === "Error") throw new Error(payload.Message || "CoinDesk Data request failed");
   return payload;
@@ -129,44 +292,58 @@ async function cryptoCompareGet(path: string, params: Record<string, string | nu
 export async function getCryptoHistory(symbol: string, endpoint: string, limit: number, currency = "USD") {
   const allowed = new Set(["histominute", "histohour", "histoday"]);
   const selected = allowed.has(endpoint) ? endpoint : "histoday";
-  const normalizedLimit = Math.min(2000, Math.max(1, limit));
-  const upperSymbol = symbol.toUpperCase();
-  const upperCurrency = currency.toUpperCase();
-  return cached(`crypto-history:${selected}:${upperSymbol}:${upperCurrency}:${normalizedLimit}`, 5 * 60_000, () =>
-    cryptoCompareGet(`v2/${selected}`, {
-      fsym: upperSymbol,
-      tsym: upperCurrency,
-      limit: normalizedLimit,
-      e: "CCCAGG",
-      extraParams: "BoundingCurve",
-    }),
-  );
+  const upperSymbol = normalizeSymbol(symbol);
+  const upperCurrency = normalizeSymbol(currency);
+  if (!trackedSymbols.has(upperSymbol)) {
+    const error = new Error("Historical data is only available for configured market symbols") as ServiceError;
+    error.status = 400;
+    throw error;
+  }
+  if (upperCurrency !== "USD") {
+    const error = new Error("USD is the only supported historical quote currency") as ServiceError;
+    error.status = 400;
+    throw error;
+  }
+  const canonicalLimit = selected === "histominute" ? 1440 : selected === "histohour" ? 168 : 365;
+  const normalizedLimit = Math.min(canonicalLimit, Math.max(1, limit));
+  const key = `crypto-history:${selected}:${upperSymbol}:USD`;
+  const ttlMs = selected === "histominute" ? 15 * 60_000 : selected === "histohour" ? 60 * 60_000 : env.MARKET_HISTORY_CACHE_SECONDS * 1000;
+  const payload = await persistentCached<any>(key, ttlMs, () => cryptoCompareGet(`v2/${selected}`, {
+    fsym: upperSymbol,
+    tsym: upperCurrency,
+    limit: canonicalLimit,
+    e: "CCCAGG",
+    extraParams: "BoundingCurve",
+  }));
+  const rows = payload?.Data?.Data;
+  if (!Array.isArray(rows)) return payload;
+  return { ...payload, Data: { ...payload.Data, Data: rows.slice(-(normalizedLimit + 1)) } };
 }
 
 export async function getTopCrypto(limit = 50, currency = "USD") {
   const normalizedLimit = Math.min(100, Math.max(1, limit));
-  const upperCurrency = currency.toUpperCase();
-  return cached(`top-crypto:${normalizedLimit}:${upperCurrency}`, 30_000, () =>
+  const upperCurrency = normalizeSymbol(currency);
+  return cached(`top-crypto:${normalizedLimit}:${upperCurrency}`, env.MARKET_QUOTE_CACHE_SECONDS * 1000, () =>
     cryptoCompareGet("top/mktcapfull", { limit: normalizedLimit, tsym: upperCurrency }),
   );
 }
 
 export async function getCryptoQuotes(symbols: string[], currency = "USD") {
-  const normalized = [...new Set(symbols.map((symbol) => symbol.toUpperCase().replace(/[^A-Z0-9]/g, "")).filter(Boolean))].slice(0, 100);
-  const upperCurrency = currency.toUpperCase();
+  const normalized = [...new Set(symbols.map(normalizeSymbol).filter(Boolean))].sort().slice(0, 100);
+  const upperCurrency = normalizeSymbol(currency);
   if (!normalized.length) return {};
-  return cached(`crypto-quotes:${normalized.join(",")}:${upperCurrency}`, 30_000, async () => {
+  return cached(`crypto-quotes:${normalized.join(",")}:${upperCurrency}`, env.MARKET_QUOTE_CACHE_SECONDS * 1000, async () => {
     const payload = await cryptoCompareGet("pricemultifull", { fsyms: normalized.join(","), tsyms: upperCurrency });
     return payload?.RAW || {};
   });
 }
 
 export async function getStockQuote(symbol: string): Promise<MarketQuote> {
-  const upper = symbol.toUpperCase();
-  const existing = cache.get(upper);
+  const upper = normalizeSymbol(symbol);
+  const existing = quoteCache.get(upper);
   if (existing?.source === "alpha-vantage" && Date.now() - existing.time < 60_000) return existing;
   if (!env.ALPHA_VANTAGE_API_KEY) {
-    const error = new Error("Alpha Vantage API key is not configured") as Error & { status: number };
+    const error = new Error("Alpha Vantage API key is not configured") as ServiceError;
     error.status = 503;
     throw error;
   }
@@ -197,11 +374,11 @@ export async function getStockQuote(symbol: string): Promise<MarketQuote> {
 
 export async function getStockHistory(symbol: string) {
   if (!env.ALPHA_VANTAGE_API_KEY) {
-    const error = new Error("Alpha Vantage API key is not configured") as Error & { status: number };
+    const error = new Error("Alpha Vantage API key is not configured") as ServiceError;
     error.status = 503;
     throw error;
   }
-  const upper = symbol.toUpperCase();
+  const upper = normalizeSymbol(symbol);
   return cached(`stock-history:${upper}`, 60 * 60_000, async () => {
     const url = new URL("https://www.alphavantage.co/query");
     url.searchParams.set("function", "TIME_SERIES_DAILY");
@@ -225,12 +402,12 @@ export async function getStockHistory(symbol: string) {
 }
 
 export async function getMarketPrice(symbol: string, assetType = "crypto") {
-  const upper = symbol.toUpperCase();
-  const cached = cache.get(upper);
-  if (cached && Date.now() - cached.time < 60_000) return cached;
+  const upper = normalizeSymbol(symbol);
+  const existing = quoteCache.get(upper);
+  if (existing && Date.now() - existing.time < env.MARKET_QUOTE_CACHE_SECONDS * 1000) return existing;
   if (assetType === "stock") return getStockQuote(upper);
-  const payload = await cryptoCompareGet("pricemultifull", { fsyms: upper, tsyms: "USD" });
-  const raw = payload?.RAW?.[upper]?.USD;
+  const payload = await getCryptoQuotes([upper]);
+  const raw = (payload as any)?.[upper]?.USD;
   if (!raw?.PRICE) throw new Error(`No live market price available for ${upper}`);
   const quote: MarketQuote = {
     symbol: upper,
@@ -249,21 +426,48 @@ export async function getMarketPrice(symbol: string, assetType = "crypto") {
 }
 
 export const marketData = {
-  start() { stopped = false; connect(); },
-  stop() { stopped = true; if (reconnectTimer) clearTimeout(reconnectTimer); upstream?.close(); },
-  onQuote(listener: QuoteListener) { listeners.add(listener); return () => listeners.delete(listener); },
-  subscribe(symbols: string[]) {
-    const added: string[] = [];
-    for (const raw of symbols) {
-      const symbol = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
-      if (!symbol || subscriptions.has(symbol)) continue;
-      subscriptions.add(symbol);
-      added.push(symbol);
-    }
-    if (added.length && upstream?.readyState === WebSocket.OPEN) {
-      upstream.send(JSON.stringify({ action: "SubAdd", subs: added.map((symbol) => `5~CCCAGG~${symbol}~USD`) }));
-    }
+  async start() {
+    stopped = false;
+    await loadSnapshots();
+    connect();
   },
-  getQuote(symbol: string) { return cache.get(symbol.toUpperCase()); },
-  get status() { return upstream?.readyState === WebSocket.OPEN ? "connected" : cryptoCompareApiKey ? "connecting" : "unconfigured"; },
+  stop() {
+    stopped = true;
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (watchdogTimer) clearInterval(watchdogTimer);
+    reconnectTimer = undefined;
+    watchdogTimer = undefined;
+    upstream?.close();
+    upstream = null;
+  },
+  onQuote(listener: QuoteListener) {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  },
+  isTracked(symbol: string) {
+    return trackedSymbols.has(normalizeSymbol(symbol));
+  },
+  getQuote(symbol: string) {
+    return quoteCache.get(normalizeSymbol(symbol));
+  },
+  get status() {
+    if (!cryptoCompareApiKey) return "unconfigured";
+    if (!env.MARKET_STREAM_ENABLED) return "disabled";
+    if (streamAuthFailed) return "auth-paused";
+    if (upstream?.readyState === WebSocket.OPEN) return "connected";
+    return "connecting";
+  },
+  get quota() {
+    return {
+      rest: restRateLimit,
+      stream: streamRateLimit,
+      local: {
+        used: budgetUsed,
+        limit: env.MARKET_REST_REQUESTS_PER_HOUR,
+        remaining: Math.max(0, env.MARKET_REST_REQUESTS_PER_HOUR - budgetUsed),
+        resetAt: budgetWindowStartedAt + HOUR_MS,
+      },
+      reserve: env.MARKET_RATE_LIMIT_RESERVE,
+    };
+  },
 };

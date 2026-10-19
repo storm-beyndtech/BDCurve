@@ -19,7 +19,7 @@ let socket: WebSocket | null = null;
 let heartbeat: number | undefined;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
-const subscriptions = new Set<string>();
+const subscriptions = new Map<string, number>();
 
 const startHeartbeat = () => {
 	stopHeartbeat();
@@ -58,7 +58,7 @@ export const connectWs = () => {
 		store.dispatch(setError(undefined));
 		startHeartbeat();
 		if (subscriptions.size) {
-			socket?.send(JSON.stringify({ type: "subscribe", symbols: [...subscriptions] }));
+			socket?.send(JSON.stringify({ type: "subscribe", symbols: [...subscriptions.keys()] }));
 		}
 	};
 
@@ -72,9 +72,11 @@ export const connectWs = () => {
 	socket.onclose = () => {
 		store.dispatch(setStatus("disconnected"));
 		stopHeartbeat();
-		reconnectAttempts++;
-		const delay = Math.min(2000 * reconnectAttempts, 10000); // Exponential backoff, max 10s
-		setTimeout(connectWs, delay);
+		if (subscriptions.size) {
+			reconnectAttempts++;
+			const delay = Math.min(2000 * reconnectAttempts, 10000);
+			setTimeout(connectWs, delay);
+		}
 	};
 
 	socket.onmessage = (event) => {
@@ -114,11 +116,26 @@ export const connectWs = () => {
 export const subscribeMarketSymbol = (symbol: string) => {
 	const normalized = symbol.toUpperCase().replace(/[^A-Z0-9]/g, "");
 	if (!normalized) return;
-	subscriptions.add(normalized);
+	const current = subscriptions.get(normalized) || 0;
+	subscriptions.set(normalized, current + 1);
 	connectWs();
-	if (socket?.readyState === WebSocket.OPEN) {
+	if (current === 0 && socket?.readyState === WebSocket.OPEN) {
 		socket.send(JSON.stringify({ type: "subscribe", symbols: [normalized] }));
 	}
+};
+
+export const unsubscribeMarketSymbol = (symbol: string) => {
+	const normalized = symbol.toUpperCase().replace(/[^A-Z0-9]/g, "");
+	const current = subscriptions.get(normalized) || 0;
+	if (current > 1) {
+		subscriptions.set(normalized, current - 1);
+		return;
+	}
+	if (!subscriptions.delete(normalized)) return;
+	if (socket?.readyState === WebSocket.OPEN) {
+		socket.send(JSON.stringify({ type: "unsubscribe", symbols: [normalized] }));
+	}
+	if (subscriptions.size === 0) disconnectWs();
 };
 
 export const disconnectWs = () => {

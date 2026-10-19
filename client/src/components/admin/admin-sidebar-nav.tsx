@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
+import { BrandLogo } from "@/components/layout/brand-logo";
 
 interface NavItem {
   label: string;
@@ -137,15 +138,7 @@ export function AdminSidebarNav({ className = "", hideOnMobile = true }: { class
         {/* Logo */}
         <div className="flex h-16 items-center border-b border-border/50 px-6">
           <Link to="/admin" className="flex items-center gap-3">
-            <div className="relative w-auto h-6">
-              <img
-                src="/logo2.png"
-                alt="Bounding Curve Admin"
-                width={90}
-                height={24}
-                className="h-full w-auto object-contain dark:invert"
-              />
-            </div>
+            <BrandLogo size="sm" />
             <span className="text-xs font-medium text-accent-500">ADMIN</span>
           </Link>
         </div>
