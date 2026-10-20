@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
@@ -9,60 +10,68 @@ import MarketingLayout from "@/layouts/MarketingLayout";
 
 // Marketing Pages
 import HomePage from "@/pages/Home";
-import AboutPage from "@/pages/About";
-import ContactPage from "@/pages/Contact";
-import DemoPage from "@/pages/Demo";
-import ProductsPage from "@/pages/Products";
-import ProductsStocksPage from "@/pages/products/Stocks";
-import ProductsEtfsPage from "@/pages/products/Etfs";
-import ProductsOptionsPage from "@/pages/products/Options";
-import ProductsCryptoPage from "@/pages/products/Crypto";
-import ProductsCommoditiesPage from "@/pages/products/Commodities";
-import TermsPage from "@/pages/legal/Terms";
-import PrivacyPage from "@/pages/legal/Privacy";
+const AboutPage = lazy(() => import("@/pages/About"));
+const ContactPage = lazy(() => import("@/pages/Contact"));
+const DemoPage = lazy(() => import("@/pages/Demo"));
+const ProductsPage = lazy(() => import("@/pages/Products"));
+const ProductsStocksPage = lazy(() => import("@/pages/products/Stocks"));
+const ProductsEtfsPage = lazy(() => import("@/pages/products/Etfs"));
+const ProductsOptionsPage = lazy(() => import("@/pages/products/Options"));
+const ProductsCryptoPage = lazy(() => import("@/pages/products/Crypto"));
+const ProductsCommoditiesPage = lazy(() => import("@/pages/products/Commodities"));
+const TermsPage = lazy(() => import("@/pages/legal/Terms"));
+const PrivacyPage = lazy(() => import("@/pages/legal/Privacy"));
 
 // Auth Pages
-import LoginPage from "@/pages/auth/Login";
-import RegisterPage from "@/pages/auth/Register";
-import SignupPage from "@/pages/auth/Signup";
-import VerifyEmailPage from "@/pages/auth/VerifyEmail";
-import ForgotPasswordPage from "@/pages/auth/ForgotPassword";
-import ResetPasswordPage from "@/pages/auth/ResetPassword";
+const LoginPage = lazy(() => import("@/pages/auth/Login"));
+const RegisterPage = lazy(() => import("@/pages/auth/Register"));
+const SignupPage = lazy(() => import("@/pages/auth/Signup"));
+const VerifyEmailPage = lazy(() => import("@/pages/auth/VerifyEmail"));
+const ForgotPasswordPage = lazy(() => import("@/pages/auth/ForgotPassword"));
+const ResetPasswordPage = lazy(() => import("@/pages/auth/ResetPassword"));
 
 // Dashboard Layout & Pages
 import DashboardLayout from "@/layouts/DashboardLayout";
-import DashboardHomePage from "@/pages/dashboard/Dashboard";
-import DashboardDepositPage from "@/pages/dashboard/Deposit";
-import DashboardOnboardingPage from "@/pages/dashboard/Onboarding";
-import DashboardProfilePage from "@/pages/dashboard/Profile";
-import DashboardTransactionsPage from "@/pages/dashboard/Transactions";
-import DashboardWithdrawalPage from "@/pages/dashboard/Withdrawal";
-import DashboardWatchlistPage from "@/pages/dashboard/Watchlist";
-import DashboardStockDetailsPage from "@/pages/dashboard/StockDetails";
-import DashboardTradePage from "@/pages/dashboard/Trade";
-import DashboardMarketsPage from "@/pages/dashboard/Markets";
-import DashboardStocksPage from "@/pages/dashboard/Stocks";
-import DashboardCryptoMarketsPage from "@/pages/dashboard/CryptoMarkets";
-import DashboardAssetsPage from "@/pages/dashboard/Assets";
-import DashboardTradersPage from "@/pages/dashboard/Traders";
-import DashboardLiveTradePage from "@/pages/dashboard/LiveTrade";
+const DashboardHomePage = lazy(() => import("@/pages/dashboard/Dashboard"));
+const DashboardDepositPage = lazy(() => import("@/pages/dashboard/Deposit"));
+const DashboardOnboardingPage = lazy(() => import("@/pages/dashboard/Onboarding"));
+const DashboardProfilePage = lazy(() => import("@/pages/dashboard/Profile"));
+const DashboardTransactionsPage = lazy(() => import("@/pages/dashboard/Transactions"));
+const DashboardWithdrawalPage = lazy(() => import("@/pages/dashboard/Withdrawal"));
+const DashboardWatchlistPage = lazy(() => import("@/pages/dashboard/Watchlist"));
+const DashboardStockDetailsPage = lazy(() => import("@/pages/dashboard/StockDetails"));
+const DashboardTradePage = lazy(() => import("@/pages/dashboard/Trade"));
+const DashboardMarketsPage = lazy(() => import("@/pages/dashboard/Markets"));
+const DashboardStocksPage = lazy(() => import("@/pages/dashboard/Stocks"));
+const DashboardCryptoMarketsPage = lazy(() => import("@/pages/dashboard/CryptoMarkets"));
+const DashboardAssetsPage = lazy(() => import("@/pages/dashboard/Assets"));
+const DashboardTradersPage = lazy(() => import("@/pages/dashboard/Traders"));
+const DashboardLiveTradePage = lazy(() => import("@/pages/dashboard/LiveTrade"));
 
 // Admin Layout & Pages
 import AdminLayout from "@/layouts/AdminLayout";
-import AdminHomePage from "@/pages/admin/Admin";
-import AdminDepositsPage from "@/pages/admin/Deposits";
-import AdminEmailsPage from "@/pages/admin/Emails";
-import AdminKycPage from "@/pages/admin/Kyc";
-import AdminWalletsPage from "@/pages/admin/Wallets";
-import AdminUsersPage from "@/pages/admin/Users";
-import AdminWithdrawalsPage from "@/pages/admin/Withdrawals";
-import AdminAnalyticsPage from "@/pages/admin/Analytics";
-import AdminSettingsPage from "@/pages/admin/Settings";
-import AdminTransactionsPage from "@/pages/admin/Transactions";
-import AdminManageTraderPage from "@/pages/admin/ManageTrader";
-import AdminLiveTradesPage from "@/pages/admin/LiveTrades";
+const AdminHomePage = lazy(() => import("@/pages/admin/Admin"));
+const AdminDepositsPage = lazy(() => import("@/pages/admin/Deposits"));
+const AdminEmailsPage = lazy(() => import("@/pages/admin/Emails"));
+const AdminKycPage = lazy(() => import("@/pages/admin/Kyc"));
+const AdminWalletsPage = lazy(() => import("@/pages/admin/Wallets"));
+const AdminUsersPage = lazy(() => import("@/pages/admin/Users"));
+const AdminWithdrawalsPage = lazy(() => import("@/pages/admin/Withdrawals"));
+const AdminAnalyticsPage = lazy(() => import("@/pages/admin/Analytics"));
+const AdminSettingsPage = lazy(() => import("@/pages/admin/Settings"));
+const AdminTransactionsPage = lazy(() => import("@/pages/admin/Transactions"));
+const AdminManageTraderPage = lazy(() => import("@/pages/admin/ManageTrader"));
+const AdminLiveTradesPage = lazy(() => import("@/pages/admin/LiveTrades"));
 // DISABLED: Seedphrases page removed to prevent social engineering flags
-// import AdminSeedphrasesPage from "@/pages/admin/Seedphrases";
+// const AdminSeedphrasesPage = lazy(() => import("@/pages/admin/Seedphrases"));
+
+function RouteFallback() {
+	return (
+		<div className="flex min-h-[60vh] items-center justify-center" role="status" aria-label="Loading">
+			<div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-accent-500 border-r-transparent" />
+		</div>
+	);
+}
 
 function App() {
 	return (
@@ -71,6 +80,7 @@ function App() {
 				<ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
 					<ToastProvider />
 					<ScrollToTop>
+						<Suspense fallback={<RouteFallback />}>
 						<Routes>
 							{/* Marketing Routes */}
 							<Route element={<MarketingLayout />}>
@@ -133,6 +143,7 @@ function App() {
 								{/* DISABLED: Seedphrases route removed to prevent social engineering flags */}
 							</Route>
 						</Routes>
+						</Suspense>
 					</ScrollToTop>
 				</ThemeProvider>
 			</AuthProvider>

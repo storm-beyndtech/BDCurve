@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import { motion } from "framer-motion";
 import { Globe, MapPin, Building, Users } from "lucide-react";
 import { HeroOrbit } from "./visuals/hero-orbit";
@@ -36,6 +36,8 @@ export function MapStatsSection({ className }: MapStatsSectionProps) {
 								<img
 									src="/map.svg"
 									alt="Global coverage map"
+									loading="lazy"
+									decoding="async"
 									className="w-full object-contain opacity-70 dark:opacity-60"
 								/>
 							</div>
