@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { BackgroundGrid, SubtleBlurOrbs } from "@/components/marketing/visuals";
+import { BackgroundGrid } from "@/components/marketing/visuals";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowRight, Mail, Shield } from "lucide-react";
@@ -78,11 +78,11 @@ export default function VerifyEmailPage() {
 			{/* Background Elements */}
 			<div className="absolute inset-0 -z-10">
 				<BackgroundGrid variant="dots" cellSize={40} opacity={0.1} />
-				<SubtleBlurOrbs context="marketing" />
+				
 			</div>
 
 			{/* Top Navigation */}
-			<div className="absolute top-0 left-0 right-0 z-50 bg-glass-nav border-b border-glass backdrop-blur-xl">
+			<div className="absolute top-0 left-0 right-0 z-50 bg-background/95 border-b border-border">
 				<div className="container-wide container-padding">
 					<div className="flex h-16 items-center justify-between">
 						<Link to="/" className="flex items-center group">

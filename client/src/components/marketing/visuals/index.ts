@@ -84,3 +84,4 @@ export { FluidStockVisual } from "./fluid-stock-visual";
 export { FluidCryptoVisual } from "./fluid-crypto-visual";
 export { FluidPortfolioVisual } from "./fluid-portfolio-visual";
 export { FluidEtfVisual } from "./fluid-etf-visual";
+export * from "./market-panel";

@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
@@ -20,10 +20,10 @@ const cardVariants = cva("rounded-lg transition-all duration-300", {
 		padding: {
 			none: "",
 			sm: "p-4",
-			md: "p-6",
-			default: "p-6",
-			lg: "p-8",
-			xl: "p-10",
+			md: "p-4 sm:p-6",
+			default: "p-4 sm:p-6",
+			lg: "p-4 sm:p-6 lg:p-8",
+			xl: "p-5 sm:p-8 lg:p-10",
 		},
 		hover: {
 			none: "",

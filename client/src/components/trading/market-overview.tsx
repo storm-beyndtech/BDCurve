@@ -26,7 +26,7 @@ export function MarketOverview({ indices, cryptos, className }: MarketOverviewPr
 		return (
 			<div
 				key={item.symbol}
-				className="flex items-center justify-between gap-3 p-4 rounded-lg bg-card/40 border border-border hover:bg-card/60 transition-colors"
+				className="flex items-center justify-between gap-3 p-3 sm:p-4 rounded-lg bg-card/40 border border-border hover:bg-card/60 transition-colors"
 			>
 				<AssetLogo symbol={item.symbol} name={item.name} type={type} size={36} />
 				<div className="min-w-0 flex-1">

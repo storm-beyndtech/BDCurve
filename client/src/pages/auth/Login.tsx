@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/components/providers/auth-provider";
-import { BackgroundGrid, SubtleBlurOrbs } from "@/components/marketing/visuals";
+import { BackgroundGrid } from "@/components/marketing/visuals";
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { AuthSidePanel } from "@/components/auth/auth-side-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ThemeToggle } from "@/components/ui/toggle-theme";
 import {
@@ -67,11 +68,11 @@ export default function LoginPage() {
 			{/* Background Elements */}
 			<div className="absolute inset-0 -z-10">
 				<BackgroundGrid variant="dots" cellSize={40} opacity={0.1} />
-				<SubtleBlurOrbs context="marketing" />
+				
 			</div>
 
 			{/* Top Navigation */}
-			<div className="absolute top-0 left-0 right-0 z-50 bg-glass-nav border-b border-glass backdrop-blur-xl">
+			<div className="absolute top-0 left-0 right-0 z-50 bg-background/95 border-b border-border">
 				<div className="container-wide container-padding">
 					<div className="flex h-16 items-center justify-between">
 						<Link to="/" className="flex items-center group">
@@ -218,51 +219,7 @@ export default function LoginPage() {
 							transition={{ duration: 0.6, delay: 0.2 }}
 							className="hidden lg:block"
 						>
-							<div className="space-y-8">
-								<div className="space-y-4">
-									{benefits.map((benefit, index) => {
-										const Icon = benefit.icon;
-										return (
-											<motion.div
-												key={benefit.title}
-												initial={{ opacity: 0, y: 20 }}
-												animate={{ opacity: 1, y: 0 }}
-												transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
-											>
-												<Card variant="glass" padding="lg" className="hover:shadow-depth-md transition-all">
-													<div className="flex items-start gap-4">
-														<div className="w-12 h-12 rounded-xl bg-primary-500/10 flex items-center justify-center flex-shrink-0">
-															<Icon className="h-6 w-6 text-primary-600" />
-														</div>
-														<div>
-															<h3 className="font-semibold mb-1">{benefit.title}</h3>
-															<p className="text-sm text-muted-foreground">{benefit.description}</p>
-														</div>
-													</div>
-												</Card>
-											</motion.div>
-										);
-									})}
-								</div>
-
-								{/* Trust Indicators */}
-								<Card variant="elevated" padding="lg" className="bg-muted/30">
-									<div className="flex items-center gap-4 flex-wrap">
-										<div className="flex items-center gap-2">
-											<CheckCircle2 className="h-4 w-4 text-primary-600" />
-											<span className="text-sm font-medium">PCI DSS Level 1</span>
-										</div>
-										<div className="flex items-center gap-2">
-											<CheckCircle2 className="h-4 w-4 text-primary-600" />
-											<span className="text-sm font-medium">SOC 2 Certified</span>
-										</div>
-										<div className="flex items-center gap-2">
-											<CheckCircle2 className="h-4 w-4 text-primary-600" />
-											<span className="text-sm font-medium">99.99% Uptime</span>
-										</div>
-									</div>
-								</Card>
-							</div>
+							<AuthSidePanel mode="login" />
 						</motion.div>
 					</div>
 				</div>

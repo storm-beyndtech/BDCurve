@@ -1,6 +1,6 @@
-﻿import { Setting } from "../models/Setting.js";
+import { Setting } from "../models/Setting.js";
 
-export const DEFAULT_MIN_TRADE_AMOUNT = Number(process.env.MIN_TRADE_AMOUNT_USD) > 0 ? Number(process.env.MIN_TRADE_AMOUNT_USD) : 10;
+export const DEFAULT_MIN_TRADE_AMOUNT = Number(process.env.MIN_TRADE_AMOUNT_USD) > 0 ? Number(process.env.MIN_TRADE_AMOUNT_USD) : 100;
 
 let cache: { value: number; expiresAt: number } | undefined;
 
