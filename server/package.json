@@ -9,6 +9,7 @@
     "build": "node ./node_modules/typescript/bin/tsc",
     "start": "node dist/index.js",
     "seed:admin": "node dist/scripts/seedAdmin.js",
+    "seed:traders": "node dist/scripts/seedTraders.js",
     "cleanup:admin-profiles": "node dist/scripts/cleanupAdminProfiles.js",
     "type-check": "node ./node_modules/typescript/bin/tsc --noEmit",
     "verify:market:live": "node scripts/verify-market.mjs",

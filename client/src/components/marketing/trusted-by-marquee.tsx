@@ -35,7 +35,6 @@ const partners = ["Binance", "Coinbase Prime", "Fireblocks", "Chainlink", "Circl
 export function TrustedByMarquee() {
 	return (
 		<section className="w-full border-y border-border py-8 sm:py-10">
-			<p className="mb-5 text-center text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Built with infrastructure partners across TradFi and DeFi</p>
 			<LightMarquee duration={45}>
 				{partners.map((name) => (
 					<span key={name} className="whitespace-nowrap px-6 text-lg font-semibold tracking-tight text-muted-foreground/70">
@@ -86,15 +85,16 @@ export function CustomerReviewsMarquee() {
 	);
 }
 
-type Trader = { _id?: string; name: string; username?: string; specialization?: string; winRate?: number; totalCopiers?: number; profitPercentage?: { monthly?: number; yearly?: number }; profileImage?: string; status?: string };
+type Trader = { _id?: string; name: string; username?: string; specialization?: string; winRate?: number; totalCopiers?: number; profitPercentage?: { monthly?: number; yearly?: number }; profileImage?: string; status?: string; specialties?: string[]; minimumCopyAmount?: number; riskLevel?: string };
 
 const fallbackTraders: Trader[] = [
-	{ name: "Sarah Chen", specialization: "BTC & ETH swing", winRate: 78, totalCopiers: 1240, profitPercentage: { monthly: 6.4 } },
-	{ name: "James Okafor", specialization: "US large caps", winRate: 71, totalCopiers: 860, profitPercentage: { monthly: 4.1 } },
-	{ name: "Lena Müller", specialization: "DeFi blue chips", winRate: 74, totalCopiers: 990, profitPercentage: { monthly: 5.2 } },
-	{ name: "Ravi Patel", specialization: "Tech momentum", winRate: 69, totalCopiers: 640, profitPercentage: { monthly: 3.8 } },
-	{ name: "Ana Souza", specialization: "SOL ecosystem", winRate: 72, totalCopiers: 720, profitPercentage: { monthly: 5.9 } },
-	{ name: "Tom Becker", specialization: "ETF rotation", winRate: 76, totalCopiers: 510, profitPercentage: { monthly: 2.9 } },
+  { name: "Marcus Hale", specialization: "US large-cap equities", specialties: ["Equities", "Earnings"], winRate: 74, totalCopiers: 2310, profitPercentage: { monthly: 3.6, yearly: 41.8 }, minimumCopyAmount: 1000, riskLevel: "Low", profileImage: "https://ui-avatars.com/api/?name=Marcus%20Hale&background=1d4ed8&color=ffffff&size=256&bold=true" },
+  { name: "Nadia Volkov", specialization: "Crypto swing", specialties: ["BTC & ETH", "Momentum"], winRate: 69, totalCopiers: 3120, profitPercentage: { monthly: 8.9, yearly: 112.4 }, minimumCopyAmount: 2500, riskLevel: "High", profileImage: "https://ui-avatars.com/api/?name=Nadia%20Volkov&background=7c3aed&color=ffffff&size=256&bold=true" },
+  { name: "Kofi Mensah", specialization: "DeFi yield & on-chain", specialties: ["DeFi", "On-chain"], winRate: 77, totalCopiers: 1480, profitPercentage: { monthly: 5.2, yearly: 63.5 }, minimumCopyAmount: 1500, riskLevel: "Medium", profileImage: "https://ui-avatars.com/api/?name=Kofi%20Mensah&background=059669&color=ffffff&size=256&bold=true" },
+  { name: "Elena Marquez", specialization: "ETFs & global macro", specialties: ["ETFs", "Macro"], winRate: 79, totalCopiers: 1950, profitPercentage: { monthly: 2.4, yearly: 28.9 }, minimumCopyAmount: 500, riskLevel: "Low", profileImage: "https://ui-avatars.com/api/?name=Elena%20Marquez&background=0f766e&color=ffffff&size=256&bold=true" },
+  { name: "Daniel Okoro", specialization: "FX & commodities", specialties: ["FX", "Gold & oil"], winRate: 66, totalCopiers: 1270, profitPercentage: { monthly: 4.7, yearly: 52.3 }, minimumCopyAmount: 750, riskLevel: "Medium", profileImage: "https://ui-avatars.com/api/?name=Daniel%20Okoro&background=b45309&color=ffffff&size=256&bold=true" },
+  { name: "Priya Raman", specialization: "AI & tech growth", specialties: ["AI", "Semis"], winRate: 71, totalCopiers: 2780, profitPercentage: { monthly: 7.1, yearly: 89.6 }, minimumCopyAmount: 2000, riskLevel: "High", profileImage: "https://ui-avatars.com/api/?name=Priya%20Raman&background=be185d&color=ffffff&size=256&bold=true" },
+  { name: "Viktor Lindqvist", specialization: "Quant & arbitrage", specialties: ["Quant", "Multi-asset"], winRate: 82, totalCopiers: 3640, profitPercentage: { monthly: 6.3, yearly: 84.2 }, minimumCopyAmount: 5000, riskLevel: "Medium", profileImage: "https://ui-avatars.com/api/?name=Viktor%20Lindqvist&background=334155&color=ffffff&size=256&bold=true" },
 ];
 
 export function CopyTradersMarquee() {
@@ -123,7 +123,7 @@ export function CopyTradersMarquee() {
 							)}
 							<div className="min-w-0">
 								<p className="truncate text-sm font-semibold">{t.name}</p>
-								<p className="truncate text-xs text-muted-foreground">{t.specialization || "Multi-asset"}</p>
+								<p className="truncate text-xs text-muted-foreground">{t.specialties?.length ? t.specialties.slice(0, 2).join(" · ") : t.specialization || "Multi-asset"}</p>
 							</div>
 						</div>
 						<div className="mt-4 grid grid-cols-3 gap-2 text-center">

@@ -12,6 +12,7 @@ interface TraderFormData {
 	bio: string;
 	experience: number;
 	specialization: string;
+	specialties: string;
 	tradingStyle: string;
 	riskLevel: string;
 	totalTrades: number;
@@ -39,6 +40,7 @@ export default function TraderForm({ trader, onSubmit, onCancel, loading }: Trad
 		bio: "",
 		experience: 1,
 		specialization: "Forex",
+		specialties: "",
 		tradingStyle: "Day Trading",
 		riskLevel: "Low",
 		totalTrades: 0,
@@ -64,6 +66,7 @@ export default function TraderForm({ trader, onSubmit, onCancel, loading }: Trad
 				bio: trader.bio || "",
 				experience: trader.experience || 1,
 				specialization: trader.specialization || "Forex",
+				specialties: Array.isArray(trader.specialties) ? trader.specialties.join(", ") : "",
 				tradingStyle: trader.tradingStyle || "Day Trading",
 				riskLevel: trader.riskLevel || "Low",
 				totalTrades: trader.totalTrades || 0,
@@ -140,6 +143,7 @@ export default function TraderForm({ trader, onSubmit, onCancel, loading }: Trad
 		submitData.append("bio", formData.bio);
 		submitData.append("experience", String(formData.experience));
 		submitData.append("specialization", formData.specialization);
+		submitData.append("specialties", formData.specialties);
 		submitData.append("tradingStyle", formData.tradingStyle);
 		submitData.append("riskLevel", formData.riskLevel);
 		submitData.append("totalTrades", String(formData.totalTrades));
@@ -282,6 +286,16 @@ export default function TraderForm({ trader, onSubmit, onCancel, loading }: Trad
 							<option value="Indices">Indices</option>
 							<option value="Mixed">Mixed</option>
 						</select>
+					</div>
+
+					<div>
+						<Label htmlFor="specialties">Specialties (comma separated)</Label>
+						<Input
+							id="specialties"
+							placeholder="e.g. Crypto swing, DeFi yield"
+							value={formData.specialties}
+							onChange={(e) => setFormData({ ...formData, specialties: e.target.value })}
+						/>
 					</div>
 
 					<div>

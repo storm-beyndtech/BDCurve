@@ -15,6 +15,7 @@ interface Trader {
 	profileImage: string;
 	bio: string;
 	specialization: string;
+	specialties?: string[];
 	experience: number;
 	profitPercentage: {
 		monthly: number;
@@ -217,6 +218,13 @@ export default function TradersPage() {
 											<p className="truncate text-sm text-muted-foreground">
 												{trader.specialization}
 											</p>
+											{trader.specialties && trader.specialties.length > 0 && (
+												<div className="mt-1.5 flex flex-wrap gap-1">
+													{trader.specialties.slice(0, 3).map((s) => (
+														<span key={s} className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground">{s}</span>
+													))}
+												</div>
+											)}
 										</div>
 									</div>
 

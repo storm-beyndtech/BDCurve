@@ -8,6 +8,7 @@ const traderSchema = new Schema({
   profileImagePublicId: String,
   experience: { type: Number, default: 1 },
   specialization: String,
+  specialties: { type: [String], default: [] },
   tradingStyle: String,
   riskLevel: String,
   totalTrades: { type: Number, default: 0 },
