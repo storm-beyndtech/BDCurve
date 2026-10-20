@@ -66,7 +66,7 @@ export function HeroOverkill() {
 						One account. Global opportunity.
 					</div>
 					<h1 className="max-w-[11ch] text-5xl font-semibold leading-[0.98] tracking-[-0.045em] text-foreground sm:text-6xl lg:text-7xl">
-						TradFi meets on-chain.
+						Tradefi meets Defi
 					</h1>
 					<p className="mt-7 max-w-xl text-lg leading-8 text-muted-foreground sm:text-xl">
 						Access stocks and digital assets through one clear, professional platform built for how markets move now.

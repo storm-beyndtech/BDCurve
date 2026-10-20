@@ -163,7 +163,7 @@ const faqs: FAQ[] = [
 export default function HomePage() {
 	return (
 		<>
-			{/* Hero: "TradFi meets on-chain" + live BTC chart */}
+			{/* Hero: "Tradefi meets Defi" + live BTC chart */}
 			<HeroOverkill />
 
 			{/* Partners strip */}
