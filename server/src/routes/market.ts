@@ -4,67 +4,51 @@ import { authenticate, requireAdmin } from "../middleware/auth.js";
 import { getCryptoHistory, getMarketPrice, getStockHistory, getStockQuote, marketData } from "../services/marketData.js";
 import { getLatestBlock, rpcUrls, type RpcNetwork } from "../services/rpc.js";
 import { cryptoCompareApiKey, env } from "../config/env.js";
+import { defaultCoins, defaultStocks } from "../config/catalogue.js";
+import { getMinTradeAmount } from "../services/settings.js";
 
 export const coinsRouter = Router();
 export const marketRouter = Router();
 
-const defaultCoins = [
-  { symbol: "BTC", name: "Bitcoin", network: "Bitcoin", deposit: true, withdraw: true, minDeposit: 10, minWithdraw: 20, withdrawalFee: 0.5 },
-  { symbol: "ETH", name: "Ethereum", network: "Ethereum", deposit: true, withdraw: true, minDeposit: 10, minWithdraw: 20, withdrawalFee: 0.5 },
-  { symbol: "USDT", name: "Tether", network: "TRC20", deposit: true, withdraw: true, minDeposit: 10, minWithdraw: 10, withdrawalFee: 1 },
-  { symbol: "SOL", name: "Solana", network: "Solana", deposit: false, withdraw: false },
-  { symbol: "XRP", name: "XRP", network: "XRP Ledger", deposit: false, withdraw: false },
-  { symbol: "ADA", name: "Cardano", network: "Cardano", deposit: false, withdraw: false },
-  { symbol: "DOGE", name: "Dogecoin", network: "Dogecoin", deposit: false, withdraw: false },
-  { symbol: "BNB", name: "BNB", network: "BNB Smart Chain", deposit: false, withdraw: false },
-  { symbol: "AVAX", name: "Avalanche", network: "Avalanche", deposit: false, withdraw: false },
-  { symbol: "TRX", name: "TRON", network: "TRON", deposit: false, withdraw: false },
-  { symbol: "LINK", name: "Chainlink", network: "Ethereum", deposit: false, withdraw: false },
-  { symbol: "DOT", name: "Polkadot", network: "Polkadot", deposit: false, withdraw: false },
-  { symbol: "LTC", name: "Litecoin", network: "Litecoin", deposit: false, withdraw: false },
-  { symbol: "BCH", name: "Bitcoin Cash", network: "Bitcoin Cash", deposit: false, withdraw: false },
-  { symbol: "ATOM", name: "Cosmos", network: "Cosmos", deposit: false, withdraw: false },
-  { symbol: "NEAR", name: "NEAR Protocol", network: "NEAR", deposit: false, withdraw: false },
-  { symbol: "APT", name: "Aptos", network: "Aptos", deposit: false, withdraw: false },
-  { symbol: "ARB", name: "Arbitrum", network: "Arbitrum", deposit: false, withdraw: false },
-  { symbol: "FIL", name: "Filecoin", network: "Filecoin", deposit: false, withdraw: false },
-  { symbol: "ALGO", name: "Algorand", network: "Algorand", deposit: false, withdraw: false },
-  { symbol: "USDC", name: "USD Coin", network: "Ethereum", deposit: false, withdraw: false },
-];
+const toCoinResponse = (coin: any) => {
+  const symbol = String(coin.symbol || "").toUpperCase();
+  const live = marketData.getQuote(symbol);
+  return {
+    ...coin,
+    symbol,
+    price: live?.price || coin.price || 0,
+    change24h: live?.changePercent || coin.changePercent || 0,
+    changePercent: live?.changePercent || coin.changePercent || 0,
+    high24h: live?.high24h || coin.high24h || 0,
+    low24h: live?.low24h || coin.low24h || 0,
+    open: live?.open24h || coin.open || 0,
+    volume24h: live?.volume || coin.volume24h || 0,
+    marketCap: coin.marketCap || 0,
+  };
+};
 
-const defaultStocks = [
-  { symbol: "AAPL", name: "Apple Inc.", enabled: true, price: 225 },
-  { symbol: "MSFT", name: "Microsoft Corporation", enabled: true, price: 420 },
-  { symbol: "NVDA", name: "NVIDIA Corporation", enabled: true, price: 140 },
-  { symbol: "TSLA", name: "Tesla, Inc.", enabled: true, price: 260 },
-];
-
+// Never 500: upstream or DB failures degrade to the cached/default catalogue.
 coinsRouter.get("/", async (_req, res) => {
-  await marketData.refreshQuotes().catch((error) => {
+  await Promise.race([
+    marketData.refreshQuotes(),
+    new Promise((resolve) => setTimeout(resolve, 4_000)),
+  ]).catch((error) => {
     console.warn("Serving cached crypto quotes:", error instanceof Error ? error.message : error);
   });
-  const configured = await Coin.find().sort({ symbol: 1 }).lean();
-  const catalogue = new Map(defaultCoins.map((coin) => [coin.symbol, coin]));
-  for (const coin of configured) catalogue.set(coin.symbol, { ...catalogue.get(coin.symbol), ...coin } as any);
-  const coins = [...catalogue.values()];
-  return res.json(coins.map((coin: any) => {
+  let configured: any[] = [];
+  try {
+    configured = await Coin.find().sort({ symbol: 1 }).lean();
+  } catch (error) {
+    console.error("Coin catalogue lookup failed; serving defaults", error);
+  }
+  const catalogue = new Map<string, any>(defaultCoins.map((coin) => [coin.symbol, coin]));
+  for (const coin of configured) {
+    if (!coin?.symbol) continue;
     const symbol = String(coin.symbol).toUpperCase();
-    const live = marketData.getQuote(symbol);
-    return {
-      ...coin,
-      symbol,
-      price: live?.price || coin.price || 0,
-      change24h: live?.changePercent || coin.changePercent || 0,
-      changePercent: live?.changePercent || coin.changePercent || 0,
-      high24h: live?.high24h || coin.high24h || 0,
-      low24h: live?.low24h || coin.low24h || 0,
-      open: live?.open24h || coin.open || 0,
-      volume24h: live?.volume || coin.volume24h || 0,
-      marketCap: coin.marketCap || 0,
-    };
-  }));
-});
-coinsRouter.post("/create/:symbol", authenticate, requireAdmin, async (req, res) => {
+    catalogue.set(symbol, { ...catalogue.get(symbol), ...coin, symbol });
+  }
+  res.json([...catalogue.values()].map(toCoinResponse));
+});coinsRouter.post("/create/:symbol", authenticate, requireAdmin, async (req, res) => {
   const symbol = String(req.params.symbol).toUpperCase();
   const coin = await Coin.findOneAndUpdate({ symbol }, { ...req.body, symbol }, { upsert: true, new: true, runValidators: true });
   res.status(201).json(coin);
@@ -75,9 +59,27 @@ coinsRouter.put("/update/:symbol", authenticate, requireAdmin, async (req, res) 
   res.json(coin);
 });
 
+marketRouter.get("/settings", async (_req, res) => {
+  res.json({ minTradeAmount: await getMinTradeAmount() });
+});
 marketRouter.get("/stocks", async (_req, res) => {
-  const stocks = await Stock.find({ enabled: true }).sort({ symbol: 1 });
-  res.json(stocks.length ? stocks : defaultStocks);
+  // Merge DB overrides onto the default catalogue; disabled DB rows hide a default stock. Never 500.
+  let configured: any[] = [];
+  try {
+    configured = await Stock.find().sort({ symbol: 1 }).lean();
+  } catch (error) {
+    console.error("Stock catalogue lookup failed; serving defaults", error);
+  }
+  const catalogue = new Map<string, any>(defaultStocks.map((stock) => [stock.symbol, { ...stock }]));
+  for (const stock of configured) {
+    if (!stock?.symbol) continue;
+    const symbol = String(stock.symbol).toUpperCase();
+    catalogue.set(symbol, { ...catalogue.get(symbol), ...stock, symbol });
+  }
+  res.json([...catalogue.values()].filter((stock) => stock.enabled !== false).map((stock) => {
+    const live = marketData.getQuote(stock.symbol);
+    return live ? { ...stock, price: live.price, change: live.change, changePercent: live.changePercent } : stock;
+  }));
 });
 marketRouter.post("/stock/add", authenticate, requireAdmin, async (req, res) => {
   const symbol = String(req.body.symbol || "").toUpperCase();
@@ -92,23 +94,29 @@ marketRouter.put("/stock/:symbol/status", authenticate, requireAdmin, async (req
 });
 marketRouter.get("/stock/profile", async (req, res) => {
   const symbol = String(req.query.symbol || "").toUpperCase();
-  const stock = await Stock.findOne({ symbol });
+  const stock = await Stock.findOne({ symbol }).catch(() => null);
   res.json(stock || defaultStocks.find((item) => item.symbol === symbol) || { symbol, name: symbol, description: "Market instrument" });
 });
 marketRouter.get("/stock/quote", async (req, res) => {
   const symbol = String(req.query.symbol || "").toUpperCase();
   if (!symbol) return res.status(400).json({ message: "Symbol is required" });
-  const quote = await getStockQuote(symbol);
-  res.json({ ...quote, currentPrice: quote.price, open: quote.open24h, high: quote.high24h, low: quote.low24h });
+  try {
+    const quote = await getStockQuote(symbol);
+    res.json({ ...quote, currentPrice: quote.price, open: quote.open24h, high: quote.high24h, low: quote.low24h });
+  } catch (error) {
+    res.status(503).json({ message: error instanceof Error ? error.message : "Quote unavailable", symbol });
+  }
 });
 marketRouter.get("/stock/historical", async (req, res) => {
   const symbol = String(req.query.symbol || "").toUpperCase();
   if (!symbol) return res.status(400).json({ message: "Symbol is required" });
-  const timeframe = String(req.query.timeframe || "1Y").toUpperCase();
-  const days = timeframe === "1D" ? 2 : timeframe === "5D" || timeframe === "1W" ? 7 : timeframe === "1M" ? 31 : 366;
+  const raw = String(req.query.timeframe || "1Y").toUpperCase();
+  const timeframe = raw === "1W" ? "5D" : ["1D", "5D", "1M", "1Y"].includes(raw) ? raw : "1Y";
+  const days = timeframe === "1D" ? 2 : timeframe === "5D" ? 7 : timeframe === "1M" ? 31 : 366;
   const cutoff = Math.floor(Date.now() / 1000) - days * 86_400;
-  const data = (await getStockHistory(symbol)).filter((point) => point.time >= cutoff);
-  res.json({ symbol, timeframe, data, source: "alpha-vantage" });
+  const history = await getStockHistory(symbol, timeframe).catch(() => []);
+  const data = history.filter((point) => point.time >= cutoff);
+  res.json({ symbol, timeframe, data, unavailable: data.length === 0 });
 });
 marketRouter.get("/crypto/historical", async (req, res) => {
   const symbol = String(req.query.symbol || "").toUpperCase();
@@ -116,12 +124,22 @@ marketRouter.get("/crypto/historical", async (req, res) => {
   const endpoint = String(req.query.endpoint || "histoday");
   const currency = String(req.query.currency || "USD");
   const limit = Math.min(2000, Math.max(1, Number(req.query.limit) || 120));
-  res.json(await getCryptoHistory(symbol, endpoint, limit, currency));
+  try {
+    res.json(await getCryptoHistory(symbol, endpoint, limit, currency));
+  } catch (error: any) {
+    // Degrade to an empty series instead of a 500 so the chart shows "unavailable" rather than crashing.
+    const status = typeof error?.status === "number" && error.status < 500 ? error.status : 200;
+    res.status(status).json({ Data: { Data: [] }, unavailable: true, message: error?.message || "History unavailable" });
+  }
 });
 marketRouter.get("/crypto/quote", async (req, res) => {
   const symbol = String(req.query.symbol || "").toUpperCase();
   if (!symbol) return res.status(400).json({ message: "Symbol is required" });
-  res.json(await getMarketPrice(symbol, "crypto"));
+  try {
+    res.json(await getMarketPrice(symbol, "crypto"));
+  } catch (error) {
+    res.status(503).json({ message: error instanceof Error ? error.message : "Quote unavailable", symbol });
+  }
 });
 
 marketRouter.get("/status", (_req, res) => res.json({

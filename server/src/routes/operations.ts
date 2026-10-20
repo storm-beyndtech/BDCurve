@@ -4,6 +4,7 @@ import { AuditLog, EmailLog, Wallet } from "../models/Operations.js";
 import { User } from "../models/User.js";
 import { Transaction } from "../models/Transaction.js";
 import { sendMail } from "../services/mailer.js";
+import { getMinTradeAmount, setMinTradeAmount } from "../services/settings.js";
 
 export const walletRouter = Router();
 export const adminRouter = Router();
@@ -57,6 +58,16 @@ adminRouter.get("/audit-stats", async (_req, res) => {
     AuditLog.distinct("actorId"),
   ]);
   res.json({ total, today: todayCount, thisWeek, uniqueAdmins: uniqueActors.filter(Boolean).length });
+});
+adminRouter.get("/settings", async (_req, res) => res.json({ minTradeAmount: await getMinTradeAmount() }));
+adminRouter.put("/settings", async (req, res) => {
+  const minTradeAmount = Number(req.body.minTradeAmount);
+  if (!Number.isFinite(minTradeAmount) || minTradeAmount < 0 || minTradeAmount > 1_000_000) {
+    return res.status(400).json({ message: "minTradeAmount must be a number between 0 and 1,000,000" });
+  }
+  await setMinTradeAmount(minTradeAmount);
+  await AuditLog.create({ actorId: req.user!._id, action: "settings.update", targetType: "Setting", targetId: "minTradeAmount", metadata: { minTradeAmount } });
+  res.json({ minTradeAmount });
 });
 adminRouter.get("/email-logs", async (req, res) => res.json({ logs: await EmailLog.find().sort({ createdAt: -1 }).limit(Math.min(100, Number(req.query.limit) || 50)) }));
 adminRouter.post("/send-email", async (req, res) => {

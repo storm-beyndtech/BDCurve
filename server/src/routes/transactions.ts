@@ -3,6 +3,7 @@ import { authenticate, requireAdmin } from "../middleware/auth.js";
 import { Transaction } from "../models/Transaction.js";
 import { User } from "../models/User.js";
 import { getMarketPrice } from "../services/marketData.js";
+import { getMinTradeAmount } from "../services/settings.js";
 
 const router = Router();
 
@@ -25,10 +26,12 @@ async function listTransactions(type: string, req: Parameters<typeof authenticat
 }
 
 router.use(authenticate);
-router.get("/deposits", (req, res) => void listTransactions("deposit", req, res));
-router.get("/withdrawals", (req, res) => void listTransactions("withdrawal", req, res));
-router.get("/trades", (req, res) => void listTransactions("trade", req, res));
-router.get("/profits", (req, res) => void listTransactions("profit", req, res));
+// Return the promise so Express 5 routes rejections to the error handler. The previous `void` form
+// turned any DB/populate error into an unhandled rejection, which crashes the Node process.
+router.get("/deposits", (req, res) => listTransactions("deposit", req, res));
+router.get("/withdrawals", (req, res) => listTransactions("withdrawal", req, res));
+router.get("/trades", (req, res) => listTransactions("trade", req, res));
+router.get("/profits", (req, res) => listTransactions("profit", req, res));
 router.get("/all", async (req, res) => {
   const userId = req.query.userId || req.user!._id;
   if (!canAccess(req.user, userId)) return res.status(403).json({ message: "Forbidden" });
@@ -62,32 +65,57 @@ router.post("/trade", async (req, res) => {
   const user = await User.findById(userId);
   if (!user) return res.status(404).json({ message: "User not found" });
   const quantity = Number(req.body.quantity);
-  const symbol = String(req.body.symbol || "").toUpperCase();
+  const symbol = String(req.body.symbol || "").toUpperCase().trim();
   const action = String(req.body.action || "").toLowerCase();
-  if (!symbol || !["buy", "sell"].includes(action) || !Number.isFinite(quantity) || quantity <= 0) return res.status(400).json({ message: "Invalid trade" });
-  const orderType = String(req.body.orderType || "market");
-  const marketQuote = await getMarketPrice(symbol, String(req.body.assetType || "crypto"));
-  const executionPrice = orderType === "limit" ? Number(req.body.limitPrice) : marketQuote.price;
+  const orderType = String(req.body.orderType || "market").toLowerCase();
+  const assetType = String(req.body.assetType || "crypto").toLowerCase() === "stock" ? "stock" : "crypto";
+  if (!symbol || symbol === "USDT" || !["buy", "sell"].includes(action) || !["market", "limit"].includes(orderType) || !Number.isFinite(quantity) || quantity <= 0) {
+    return res.status(400).json({ message: "Invalid trade" });
+  }
+  const limitPrice = Number(req.body.limitPrice);
+  if (orderType === "limit" && (!Number.isFinite(limitPrice) || limitPrice <= 0)) return res.status(400).json({ message: "A valid limit price is required" });
+
+  let marketQuote: Awaited<ReturnType<typeof getMarketPrice>> | undefined;
+  try {
+    marketQuote = await getMarketPrice(symbol, assetType);
+  } catch (error) {
+    if (orderType === "market") return res.status(503).json({ message: "A live price is not available for this trade" });
+  }
+  const executionPrice = orderType === "limit" ? limitPrice : Number(marketQuote?.price);
   if (!Number.isFinite(executionPrice) || executionPrice <= 0) return res.status(503).json({ message: "A live price is not available for this trade" });
   const amount = Number((quantity * executionPrice).toFixed(8));
-  if (orderType === "limit") {
-    const trade = await Transaction.create({ ...req.body, userId, symbol, amount, quantity, price: executionPrice, type: "trade", status: "pending", side: action, metadata: { quoteSource: marketQuote.source, quotedAt: marketQuote.time, marketPriceAtPlacement: marketQuote.price } });
-    return res.status(201).json({ success: true, trade });
-  }
+  const minTradeAmount = await getMinTradeAmount();
+  if (amount < minTradeAmount) return res.status(400).json({ message: `Minimum order value is $${minTradeAmount.toFixed(2)}`, minTradeAmount });
+
+  // Only persist whitelisted fields (never spread the raw body into the document).
+  const base = {
+    userId, symbol, amount, quantity, price: executionPrice, type: "trade" as const, side: action, assetType,
+    metadata: { orderType, quoteSource: marketQuote?.source, quotedAt: marketQuote?.time, marketPriceAtPlacement: marketQuote?.price },
+  };
   const quoteAsset = user.assets.find((asset) => asset.symbol === "USDT");
   const tradedAsset = user.assets.find((asset) => asset.symbol === symbol);
+
+  if (orderType === "limit") {
+    if (action === "buy" && (!quoteAsset || Number(quoteAsset.spot) < amount)) return res.status(400).json({ message: "Insufficient USDT balance" });
+    if (action === "sell" && (!tradedAsset || Number(tradedAsset.spot) < quantity)) return res.status(400).json({ message: `Insufficient ${symbol} balance` });
+    const trade = await Transaction.create({ ...base, status: "pending" });
+    return res.status(201).json({ success: true, trade });
+  }
+
   if (action === "buy") {
     if (!quoteAsset || Number(quoteAsset.spot) < amount) return res.status(400).json({ message: "Insufficient USDT balance" });
-    quoteAsset.spot = Number(quoteAsset.spot) - amount;
-    if (tradedAsset) tradedAsset.spot = Number(tradedAsset.spot) + quantity;
+    quoteAsset.spot = Number((Number(quoteAsset.spot) - amount).toFixed(8));
+    if (tradedAsset) tradedAsset.spot = Number((Number(tradedAsset.spot) + quantity).toFixed(10));
     else user.assets.push({ symbol, name: symbol, spot: quantity, funding: 0 });
   } else {
     if (!tradedAsset || Number(tradedAsset.spot) < quantity) return res.status(400).json({ message: `Insufficient ${symbol} balance` });
-    tradedAsset.spot = Number(tradedAsset.spot) - quantity;
-    if (quoteAsset) quoteAsset.spot = Number(quoteAsset.spot) + amount;
+    tradedAsset.spot = Number((Number(tradedAsset.spot) - quantity).toFixed(10));
+    // Previously proceeds were silently dropped when the user had no USDT entry yet.
+    if (quoteAsset) quoteAsset.spot = Number((Number(quoteAsset.spot) + amount).toFixed(8));
+    else user.assets.push({ symbol: "USDT", name: "Tether", spot: amount, funding: 0 });
   }
   await user.save();
-  const trade = await Transaction.create({ ...req.body, userId, symbol, amount, quantity, price: executionPrice, type: "trade", status: "executed", side: action, metadata: { quoteSource: marketQuote.source, quotedAt: marketQuote.time } });
+  const trade = await Transaction.create({ ...base, status: "executed" });
   res.status(201).json({ success: true, trade });
 });
 

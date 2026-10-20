@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PriceAreaChart } from "@/components/charts/price-area-chart";
 import { AssetLogo } from "@/components/common/asset-logo";
 import { apiGet } from "@/lib/api";
+import { mergeLiveSeries, toMs } from "@/lib/chart-utils";
 import { toast } from "sonner";
 import { buildFallbackSeries } from "@/lib/series";
 import { useLiveQuote } from "@/hooks/useLiveQuote";
@@ -68,30 +69,9 @@ const timeframeToStockParam: Record<Timeframe, string> = {
 
 const mapHistoricalToSeries = (candles: Candle[]) =>
 	candles.map((c) => ({
-		value: c.close ?? c.c ?? 0,
-		time: c.time,
+		value: Number(c.close ?? c.c ?? 0),
+		time: typeof c.time === "number" ? toMs(c.time) : c.time,
 	}));
-
-const getBandForSymbol = (symbol: string) => {
-	const sym = symbol.toUpperCase();
-	if (sym === "USDT" || sym === "USDC") return 0.02;
-	const majors = ["BTC", "ETH", "BNB", "SOL", "XRP", "ADA", "DOGE", "AVAX", "MATIC"];
-	if (majors.includes(sym)) return 0.06;
-	return 0.1;
-};
-
-const fallbackPoints = (tf: Timeframe) => {
-	switch (tf) {
-		case "1Y":
-			return 180;
-		case "1M":
-			return 90;
-		case "1W":
-			return 60;
-		default:
-			return 48;
-	}
-};
 
 export default function StockDetailsPage() {
 	const { symbol } = useParams<{ symbol: string }>();
@@ -112,11 +92,9 @@ export default function StockDetailsPage() {
 			currentPrice: live.quote!.price,
 			changePercent: live.quote!.changePercent,
 			volume: live.quote!.volume ?? current.volume,
-			chartData: live.series.length
-				? [...current.chartData.slice(-180), ...live.series.slice(-20).map((point) => ({ value: point.value, time: point.time }))]
-				: current.chartData,
 		} : current);
-	}, [live.quote, live.series]);
+		// chartData stays the immutable history; live ticks are merged at render time (see displayChartData)
+	}, [live.quote]);
 
 	useEffect(() => {
 		if (!upperSymbol) return;
@@ -129,13 +107,10 @@ export default function StockDetailsPage() {
 				const coin = coins.find((c) => c.symbol === upperSymbol);
 
 				if (coin) {
-					console.log(`[CRYPTO HIST CLIENT] ========== Fetching ${upperSymbol} ==========`);
 					const safePrice = Number.isFinite(coin.price) && coin.price > 0 ? coin.price : 0;
 					const safeChange = Number.isFinite(coin.change24h) ? coin.change24h : 0;
-					console.log(`[CRYPTO HIST CLIENT] ${upperSymbol} price: ${safePrice}, change: ${safeChange}%`);
 
 					const { endpoint, limit } = timeframeToCryptoEndpoint[timeframe];
-					console.log(`[CRYPTO HIST CLIENT] Requesting CryptoCompare: endpoint=${endpoint}, symbol=${upperSymbol}, limit=${limit}`);
 
 					const hist = await apiGet<any>(
 						`/api/market/crypto/historical?endpoint=${endpoint}&symbol=${upperSymbol}&currency=USD&limit=${limit}`
@@ -145,18 +120,11 @@ export default function StockDetailsPage() {
 					});
 
 					let chartData = (hist?.Data?.Data && mapHistoricalToSeries(hist.Data.Data)) || [];
-					console.log(`[CRYPTO HIST CLIENT] CryptoCompare returned ${chartData.length} points for ${upperSymbol}`);
-
-					if (hist?.Data?.Data && chartData.length > 0) {
-						console.log(`[CRYPTO HIST CLIENT] ✅ ${upperSymbol} using CryptoCompare data (${chartData.length} points)`);
-					}
 
 					if (!chartData.length) {
 						console.warn(`[CRYPTO HIST CLIENT] ⚠️ ${upperSymbol} no historical data available`);
-						chartData = Array.from({ length: fallbackPoints(timeframe) }, (_, i) => ({ value: 0, time: i }));
+						chartData = [];
 					}
-
-					console.log(`[CRYPTO HIST CLIENT] ========== Final ${upperSymbol}: ${chartData.length} points ==========\n`);
 
 					setAsset({
 						type: "crypto",
@@ -200,7 +168,7 @@ export default function StockDetailsPage() {
 				const chartData =
 					candles.length > 0
 						? mapHistoricalToSeries(candles)
-						: Array.from({ length: fallbackPoints(timeframe) }, (_, i) => ({ value: 0, time: i }));
+						: [];
 
 				const selected = {
 					type: "stock" as const,
@@ -243,16 +211,20 @@ export default function StockDetailsPage() {
 					currentPrice: 0,
 					changePercent: 0,
 					changeAmount: 0,
-					chartData: Array.from({ length: fallbackPoints(timeframe) }, (_, i) => ({ value: 0, time: i })),
+					chartData: [],
 				});
 			} finally {
 				setLoading(false);
 			}
 		};
 
-		loadAsset();
+		void loadAsset();
 	}, [upperSymbol, timeframe]);
 
+	const displayChartData = useMemo(
+		() => (asset ? mergeLiveSeries(asset.chartData, asset.type === "crypto" ? live.series : [], timeframe === "1D" ? 30 : 1) : []),
+		[asset, live.series, timeframe],
+	);
 	const isCrypto = asset?.type === "crypto";
 	const isPositive = (asset?.changePercent ?? 0) >= 0;
 	const formatMoney = (value?: number | string, fraction = 2) => {
@@ -293,7 +265,7 @@ export default function StockDetailsPage() {
 		);
 	}
 
-	if (loading || !asset) {
+	if (!asset || (loading && asset.symbol !== upperSymbol)) {
 		return (
 			<div className="flex items-center justify-center min-h-[400px]">
 				<div className="text-center space-y-3">
@@ -395,7 +367,7 @@ export default function StockDetailsPage() {
 					{/* Large Chart with Gradient */}
 					<PriceAreaChart
 						symbol={asset.symbol}
-						data={asset.chartData}
+						data={displayChartData}
 						isPositive={isPositive}
 						variant="full"
 						height={384}

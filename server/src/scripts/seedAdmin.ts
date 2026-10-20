@@ -32,6 +32,7 @@ try {
         lastName: "Support",
         name: { first: "Bounding Curve", last: "Support", full: "Bounding Curve Support" },
         onboardingCompleted: true,
+        assets: [],
       },
     },
     { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true },

@@ -7,6 +7,7 @@ import { authenticate, requireAdmin, signToken } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
 import { sendMail } from "../services/mailer.js";
 import { uploadImage } from "../services/cloudinary.js";
+import { NON_ADMIN_FILTER, isReservedAdminEmail } from "../config/admins.js";
 
 const router = Router();
 
@@ -30,6 +31,7 @@ async function consumeCode(email: string, code: string, purpose: "registration" 
 router.post("/registration-code", async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   if (!email) return res.status(400).json({ message: "Email is required" });
+  if (isReservedAdminEmail(email)) return res.status(409).json({ message: "This email cannot be used to open a customer account" });
   if (await User.exists({ email })) return res.status(409).json({ message: "An account already exists for this email" });
   await issueCode(email, "registration");
   res.json({ message: "Verification code sent" });
@@ -38,6 +40,7 @@ router.post("/registration-code", async (req, res) => {
 router.post("/register", async (req, res) => {
   const { email, password, code, name, countryCode } = req.body;
   if (!email || !password || !code) return res.status(400).json({ message: "Email, password, and verification code are required" });
+  if (isReservedAdminEmail(String(email))) return res.status(409).json({ message: "This email cannot be used to open a customer account" });
   if (!(await consumeCode(email, code, "registration"))) return res.status(400).json({ message: "Invalid or expired verification code" });
   if (await User.exists({ email: String(email).toLowerCase() })) return res.status(409).json({ message: "Account already exists" });
   const fullName = typeof name === "string" ? name.trim() : "";
@@ -83,7 +86,10 @@ router.get("/users", authenticate, requireAdmin, async (req, res) => {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
   const search = String(req.query.search || "").trim();
-  const query = search ? { $or: [{ email: { $regex: search, $options: "i" } }, { firstName: { $regex: search, $options: "i" } }, { lastName: { $regex: search, $options: "i" } }] } : {};
+  // Admin/staff accounts are not customer profiles: keep them out of user lists and counts.
+  const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const query: Record<string, unknown> = { ...NON_ADMIN_FILTER };
+  if (escaped) query.$or = [{ email: { $regex: escaped, $options: "i" } }, { firstName: { $regex: escaped, $options: "i" } }, { lastName: { $regex: escaped, $options: "i" } }];
   const [users, totalUsers] = await Promise.all([
     User.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
     User.countDocuments(query),

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { apiGet, apiPost } from "@/lib/api";
 import { toast } from "sonner";
 import { useLiveQuote } from "@/hooks/useLiveQuote";
+import { formatPrice, mergeLiveSeries } from "@/lib/chart-utils";
 
 interface Asset {
 	symbol: string;
@@ -20,7 +21,7 @@ interface Asset {
 	currentPrice: number;
 	changePercent: number;
 	assetType: "stock" | "crypto";
-	chartData: { value: number }[];
+	chartData: { value: number; time?: number }[];
 	high24h?: number;
 	low24h?: number;
 }
@@ -46,6 +47,9 @@ export default function TradePage() {
 
 	// User balance (USDT for buying)
 	const [usdtBalance, setUsdtBalance] = useState<number>(0);
+	const [holdings, setHoldings] = useState<Record<string, number>>({});
+	// Single platform-wide minimum order value (USD), configured by admins; server enforces the same value.
+	const [minTradeAmount, setMinTradeAmount] = useState<number>(10);
 	const live = useLiveQuote(
 		selectedAsset?.symbol || "",
 		assetType,
@@ -58,16 +62,23 @@ export default function TradePage() {
 			...current,
 			currentPrice: live.quote!.price,
 			changePercent: live.quote!.changePercent,
-			chartData: live.series.length
-				? [...current.chartData.slice(-180), ...live.series.slice(-20).map((point) => ({ value: point.value }))]
-				: current.chartData,
 		} : current);
-	}, [live.quote, live.series]);
+	}, [live.quote]);
+
+	const displayChartData = useMemo(
+		() => (selectedAsset ? mergeLiveSeries(selectedAsset.chartData, selectedAsset.assetType === "crypto" ? live.series : [], 1) : []),
+		[selectedAsset, live.series],
+	);
 
 	useEffect(() => {
 		fetchAssets();
 		fetchUserBalance();
-	}, []);
+		apiGet<{ minTradeAmount: number }>("/api/market/settings")
+			.then((res) => {
+				if (Number.isFinite(res?.minTradeAmount)) setMinTradeAmount(res.minTradeAmount);
+			})
+			.catch(() => undefined);
+	}, [user?.id]);
 
 	useEffect(() => {
 		if (symbolParam && (stocks.length > 0 || cryptos.length > 0)) {
@@ -109,7 +120,9 @@ export default function TradePage() {
 			// API returns { user: {...} }
 			const assets = userData?.user?.assets || userData?.assets || [];
 			const usdtAsset = assets.find((a: any) => a.symbol === "USDT");
-			setUsdtBalance((usdtAsset?.spot || 0) + (usdtAsset?.funding || 0));
+			// Trades settle against the spot wallet only (server checks spot), so show spot here.
+			setUsdtBalance(Number(usdtAsset?.spot || 0));
+			setHoldings(Object.fromEntries(assets.map((a: any) => [String(a.symbol).toUpperCase(), Number(a.spot || 0)])));
 		} catch (error) {
 			console.error("Failed to fetch balance:", error);
 		}
@@ -123,9 +136,9 @@ export default function TradePage() {
 			if (assetType === "stock") {
 				// Try to fetch real-time stock quote
 				try {
-					const quote = await apiGet<any>(`/api/market/stock/quote?symbol=${asset.symbol}`);
-					price = quote?.c || quote?.price || 0;
-					change = quote?.dp || quote?.changePercent || 0;
+					const quote = await apiGet<any>(`/api/market/stock/quote?symbol=${encodeURIComponent(asset.symbol)}`);
+					price = Number(quote?.price || quote?.c || asset.price || 0);
+					change = Number(quote?.changePercent ?? quote?.dp ?? asset.changePercent ?? 0);
 				} catch (error) {
 					console.log(`Real-time quote not available for ${asset.symbol}, using mock data`);
 				}
@@ -146,7 +159,7 @@ export default function TradePage() {
 				currentPrice: price,
 				changePercent: change,
 				assetType,
-				chartData: historical.length ? historical : generateChartData(price, change),
+				chartData: historical,
 				high24h: asset.high24h,
 				low24h: asset.low24h,
 			});
@@ -156,33 +169,17 @@ export default function TradePage() {
 		}
 	};
 
-	const generateChartData = (currentPrice: number, changePercent: number) => {
-		if (!currentPrice || currentPrice === 0) {
-			return Array(10).fill({ value: 0 });
-		}
-		const points = 60;
-		const data: { value: number }[] = [];
-		const minBand = 0.1;
-		const band = Math.max(Math.abs(changePercent) / 100, minBand);
-		let value = currentPrice / (1 + (changePercent || 0) / 100);
-		const lower = value * (1 - band * 1.1);
-		const upper = value * (1 + band * 1.1);
-		for (let i = 0; i < points; i++) {
-			const target = currentPrice;
-			value = value + (target - value) * 0.18 + (Math.random() - 0.5) * (currentPrice * band * 0.6);
-			if (value < lower) value = lower;
-			if (value > upper) value = upper;
-			data.push({ value });
-		}
-		return data;
-	};
-
 	const calculateTotal = () => {
 		if (!selectedAsset) return 0;
 		const qty = parseFloat(quantity) || 0;
 		const price = orderType === "limit" ? parseFloat(limitPrice) || 0 : selectedAsset.currentPrice;
 		return qty * price;
 	};
+	const heldQuantity = selectedAsset ? holdings[selectedAsset.symbol] || 0 : 0;
+	const orderTotal = calculateTotal();
+	const belowMinimum = orderTotal > 0 && orderTotal < minTradeAmount;
+	const insufficientHoldings = action === "sell" && (parseFloat(quantity) || 0) > heldQuantity;
+	const priceUnavailable = orderType === "market" && !(selectedAsset?.currentPrice && selectedAsset.currentPrice > 0);
 
 	const handleTrade = async () => {
 		if (!selectedAsset || !user?.id) return;
@@ -200,6 +197,21 @@ export default function TradePage() {
 			return;
 		}
 
+		if (priceUnavailable) {
+			toast.error("A live price is not available for this asset right now");
+			return;
+		}
+
+		if (total < minTradeAmount) {
+			toast.error(`Minimum order value is $${minTradeAmount.toFixed(2)}`);
+			return;
+		}
+
+		if (insufficientHoldings) {
+			toast.error(`Insufficient ${selectedAsset.symbol} balance. You hold ${heldQuantity}`);
+			return;
+		}
+
 		// Check balance for buy orders
 		if (action === "buy" && total > usdtBalance) {
 			toast.error(`Insufficient balance. You need $${total.toFixed(2)} but have $${usdtBalance.toFixed(2)}`);
@@ -214,7 +226,7 @@ export default function TradePage() {
 				orderType,
 				symbol: selectedAsset.symbol,
 				assetType: selectedAsset.assetType,
-				amount: total, // Total USDT amount
+				amount: Number(total.toFixed(8)), // Total USDT amount
 				quantity: qty, // Number of shares/coins
 				...(orderType === "limit" && { limitPrice: parseFloat(limitPrice) }),
 			};
@@ -227,6 +239,8 @@ export default function TradePage() {
 					toast.success(`${action === "buy" ? "Bought" : "Sold"} ${qty} ${selectedAsset.symbol} successfully!`);
 				} else if (status === "pending") {
 					toast.success(`Limit order placed! It will execute when price reaches $${limitPrice}`);
+				} else {
+					toast.success("Order submitted");
 				}
 
 				// Refresh balance
@@ -339,7 +353,7 @@ export default function TradePage() {
 											<div className="h-20">
 												<PriceAreaChart
 													symbol={selectedAsset.symbol}
-													data={selectedAsset.chartData}
+													data={displayChartData}
 													isPositive={isPositive}
 													variant="compact"
 													height="100%"
@@ -352,12 +366,7 @@ export default function TradePage() {
 													Current Price
 												</p>
 												<p className="text-2xl font-bold">
-													{selectedAsset.currentPrice > 0
-														? `$${selectedAsset.currentPrice.toLocaleString("en-US", {
-																minimumFractionDigits: 2,
-																maximumFractionDigits: 2,
-														  })}`
-														: "—"}
+													{selectedAsset.currentPrice > 0 ? `$${formatPrice(selectedAsset.currentPrice)}` : "—"}
 												</p>
 											</div>
 
@@ -449,12 +458,17 @@ export default function TradePage() {
 													</label>
 													<Input
 														type="number"
-														min="0.001"
-														step={assetType === "stock" ? "1" : "0.001"}
+														inputMode="decimal"
+														min="0"
+														step="any"
 														value={quantity}
 														onChange={(e) => setQuantity(e.target.value)}
 														placeholder="Enter quantity"
 													/>
+													<p className="text-xs text-muted-foreground mt-1">
+														Minimum order value: ${minTradeAmount.toFixed(2)}
+														{action === "sell" && ` · You hold ${heldQuantity} ${selectedAsset.symbol}`}
+													</p>
 												</div>
 
 												{/* Limit Price (if limit order) */}
@@ -491,10 +505,9 @@ export default function TradePage() {
 														</span>
 														<span className="font-medium">
 															$
-															{(orderType === "limit"
-																? parseFloat(limitPrice) || 0
-																: selectedAsset.currentPrice
-															).toFixed(2)}
+															{formatPrice(
+																orderType === "limit" ? parseFloat(limitPrice) || 0 : selectedAsset.currentPrice
+															)}
 														</span>
 													</div>
 													<div className="pt-2 border-t border-border flex items-center justify-between">
@@ -522,6 +535,17 @@ export default function TradePage() {
 													</div>
 												)}
 
+												{belowMinimum && (
+													<p className="text-sm text-amber-600">
+														Order value is below the platform minimum of ${minTradeAmount.toFixed(2)}.
+													</p>
+												)}
+												{insufficientHoldings && (
+													<p className="text-sm text-red-600">
+														You only hold {heldQuantity} {selectedAsset.symbol}.
+													</p>
+												)}
+
 												{/* Submit Button */}
 												<Button
 													variant={action === "buy" ? "primary" : "destructive"}
@@ -534,7 +558,10 @@ export default function TradePage() {
 														parseFloat(quantity) <= 0 ||
 														(orderType === "limit" &&
 															(!limitPrice || parseFloat(limitPrice) <= 0)) ||
-														(action === "buy" && calculateTotal() > usdtBalance)
+														(action === "buy" && calculateTotal() > usdtBalance) ||
+														orderTotal < minTradeAmount ||
+														insufficientHoldings ||
+														priceUnavailable
 													}
 												>
 													{submitting ? (

@@ -93,8 +93,17 @@ export default function AdminSettingsPage() {
 	// UI state
 	const [showAddressFor, setShowAddressFor] = useState<Set<string>>(new Set());
 
+	const [minTradeAmount, setMinTradeAmount] = useState("10");
+	const [savingMinTrade, setSavingMinTrade] = useState(false);
+
 	useEffect(() => {
 		fetchConfigs();
+		fetch(`${API_URL}/api/market/settings`)
+			.then((res) => res.json())
+			.then((json) => {
+				if (Number.isFinite(json?.minTradeAmount)) setMinTradeAmount(String(json.minTradeAmount));
+			})
+			.catch(() => undefined);
 	}, []);
 
 	const authHeaders = (): Record<string, string> => {
@@ -234,6 +243,30 @@ export default function AdminSettingsPage() {
 			toast.error(error.message || "Failed to add stock");
 		} finally {
 			setSavingSymbol(null);
+		}
+	};
+
+	const saveMinTradeAmount = async () => {
+		const value = Number(minTradeAmount);
+		if (!Number.isFinite(value) || value < 0) {
+			toast.error("Enter a valid minimum amount");
+			return;
+		}
+		setSavingMinTrade(true);
+		try {
+			const res = await fetch(`${API_URL}/api/admin/settings`, {
+				method: "PUT",
+				headers: authHeaders(),
+				body: JSON.stringify({ minTradeAmount: value }),
+			});
+			const json = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(json?.message || "Failed to save");
+			setMinTradeAmount(String(json.minTradeAmount));
+			toast.success("Minimum trade amount saved");
+		} catch (error: any) {
+			toast.error(error?.message || "Failed to save minimum trade amount");
+		} finally {
+			setSavingMinTrade(false);
 		}
 	};
 
@@ -652,6 +685,32 @@ export default function AdminSettingsPage() {
 			{/* Fees Tab */}
 			{activeTab === "fees" && (
 				<div className="space-y-6">
+					<Card variant="elevated" padding="lg">
+						<CardHeader className="p-0 space-y-2 mb-4">
+							<CardTitle className="text-xl">Minimum Trade Amount</CardTitle>
+							<CardDescription>
+								Single platform-wide minimum order value (USD) for every stock and crypto trade. Stored on the server and enforced on both client and server.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="p-0">
+							<div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+								<div className="relative sm:w-64">
+									<span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+									<Input
+										type="number"
+										min="0"
+										step="0.01"
+										value={minTradeAmount}
+										onChange={(e) => setMinTradeAmount(e.target.value)}
+										className="pl-6"
+									/>
+								</div>
+								<Button onClick={saveMinTradeAmount} disabled={savingMinTrade}>
+									{savingMinTrade ? "Saving..." : "Save minimum"}
+								</Button>
+							</div>
+						</CardContent>
+					</Card>
 					<Card variant="elevated" padding="lg" hover="lift">
 						<CardHeader className="p-0 space-y-2 mb-6">
 							<CardTitle className="text-xl flex items-center gap-2">

@@ -1,6 +1,7 @@
 import WebSocket from "ws";
 import { cryptoCompareApiKey, env, marketStreamSymbols } from "../config/env.js";
 import { MarketHistoryCache, MarketSnapshot } from "../models/MarketCache.js";
+import { defaultCoins } from "../config/catalogue.js";
 
 export type MarketQuote = {
   symbol: string;
@@ -12,7 +13,7 @@ export type MarketQuote = {
   low24h: number;
   open24h: number;
   time: number;
-  source: "coindesk-data" | "binance-public" | "alpha-vantage";
+  source: "coindesk-data" | "binance-public" | "alpha-vantage" | "yahoo-chart" | "cache";
 };
 
 type QuoteListener = (quote: MarketQuote) => void;
@@ -42,7 +43,8 @@ const quoteCache = new Map<string, MarketQuote>();
 const responseCache = new Map<string, { expiresAt: number; value: unknown }>();
 const inFlight = new Map<string, Promise<unknown>>();
 const listeners = new Set<QuoteListener>();
-const trackedSymbols = new Set(marketStreamSymbols);
+// Track env-configured symbols plus the whole default catalogue so every listed coin has quotes + history.
+const trackedSymbols = new Set([...marketStreamSymbols, ...defaultCoins.map((coin) => coin.symbol)]);
 const activeStreamSymbols = new Map<string, number>();
 const upstreamSubscriptions = new Set<string>();
 const lastSnapshotWrites = new Map<string, number>();
@@ -386,9 +388,17 @@ export async function getCryptoQuotes(symbols: string[], currency = "USD") {
   return cached(`crypto-quotes:${normalized.join(",")}:${upperCurrency}`, env.MARKET_QUOTE_CACHE_SECONDS * 1000, async () => {
     if (upperCurrency !== "USD") throw new Error("USD is the only supported quote currency");
     const requestSymbols = normalized.filter((symbol) => !["USDT", "USDC", "MATIC"].includes(symbol));
-    const rows = requestSymbols.length
-      ? await binancePublicGet("ticker/24hr", { symbols: JSON.stringify(requestSymbols.map((symbol) => `${symbol}USDT`)) })
-      : [];
+    let rows: any[] = [];
+    if (requestSymbols.length) {
+      try {
+        rows = await binancePublicGet("ticker/24hr", { symbols: JSON.stringify(requestSymbols.map((symbol) => `${symbol}USDT`)) });
+      } catch (error) {
+        // One unknown/delisted pair makes Binance reject the whole batch; fall back to per-symbol requests.
+        console.warn("Batch ticker request failed, retrying per symbol:", error instanceof Error ? error.message : error);
+        const settled = await Promise.allSettled(requestSymbols.map((symbol) => binancePublicGet("ticker/24hr", { symbol: `${symbol}USDT` })));
+        rows = settled.flatMap((entry) => (entry.status === "fulfilled" && entry.value ? [entry.value] : []));
+      }
+    }
     const result: Record<string, { USD: Record<string, number> }> = {};
     for (const row of rows) {
       const symbol = String(row.symbol).replace(/USDT$/, "");
@@ -410,25 +420,69 @@ export async function getCryptoQuotes(symbols: string[], currency = "USD") {
   });
 }
 
-export async function getStockQuote(symbol: string): Promise<MarketQuote> {
-  const upper = normalizeSymbol(symbol);
-  const existing = quoteCache.get(upper);
-  if (existing?.source === "alpha-vantage" && Date.now() - existing.time < 60_000) return existing;
-  if (!env.ALPHA_VANTAGE_API_KEY) {
-    const error = new Error("Alpha Vantage API key is not configured") as ServiceError;
-    error.status = 503;
-    throw error;
-  }
+const YAHOO_RANGES: Record<string, { range: string; interval: string; ttlMs: number }> = {
+  "1D": { range: "1d", interval: "5m", ttlMs: 5 * 60_000 },
+  "5D": { range: "5d", interval: "30m", ttlMs: 15 * 60_000 },
+  "1M": { range: "1mo", interval: "1h", ttlMs: 30 * 60_000 },
+  "1Y": { range: "1y", interval: "1d", ttlMs: 6 * HOUR_MS },
+};
+
+async function yahooChart(symbol: string, timeframe: string) {
+  const config = YAHOO_RANGES[timeframe] || YAHOO_RANGES["1Y"];
+  return cached(`yahoo-chart:${symbol}:${timeframe}`, config.ttlMs, async () => {
+    const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`);
+    url.searchParams.set("range", config.range);
+    url.searchParams.set("interval", config.interval);
+    const response = await fetch(url, { headers: { "user-agent": "Mozilla/5.0 (BoundingCurve market data)" }, signal: AbortSignal.timeout(12_000) });
+    if (!response.ok) throw new Error(`Stock chart request failed with ${response.status}`);
+    const payload = await response.json() as any;
+    const result = payload?.chart?.result?.[0];
+    if (!result) throw new Error(payload?.chart?.error?.description || `No chart available for ${symbol}`);
+    const timestamps: number[] = result.timestamp || [];
+    const q = result.indicators?.quote?.[0] || {};
+    const candles = timestamps.map((time, index) => ({
+      time,
+      open: number(q.open?.[index]),
+      high: number(q.high?.[index]),
+      low: number(q.low?.[index]),
+      close: number(q.close?.[index]),
+      volume: number(q.volume?.[index]),
+    })).filter((row) => row.close > 0);
+    return { meta: result.meta || {}, candles };
+  });
+}
+
+async function yahooQuote(upper: string): Promise<MarketQuote> {
+  const { meta, candles } = await yahooChart(upper, "5D");
+  const price = number(meta.regularMarketPrice) || candles.at(-1)?.close || 0;
+  if (!price) throw new Error(`No quote available for ${upper}`);
+  const previousClose = number(meta.chartPreviousClose) || number(meta.previousClose) || candles[0]?.open || price;
+  const change = price - previousClose;
+  return {
+    symbol: upper,
+    price,
+    change,
+    changePercent: previousClose ? (change / previousClose) * 100 : 0,
+    volume: number(meta.regularMarketVolume),
+    high24h: number(meta.regularMarketDayHigh) || price,
+    low24h: number(meta.regularMarketDayLow) || price,
+    open24h: previousClose,
+    time: Date.now(),
+    source: "yahoo-chart",
+  };
+}
+
+async function alphaVantageQuote(upper: string): Promise<MarketQuote> {
   const url = new URL("https://www.alphavantage.co/query");
   url.searchParams.set("function", "GLOBAL_QUOTE");
   url.searchParams.set("symbol", upper);
-  url.searchParams.set("apikey", env.ALPHA_VANTAGE_API_KEY);
+  url.searchParams.set("apikey", env.ALPHA_VANTAGE_API_KEY!);
   const response = await fetch(url, { signal: AbortSignal.timeout(12_000) });
   if (!response.ok) throw new Error(`Stock quote request failed with ${response.status}`);
   const payload = await response.json() as any;
   const raw = payload?.["Global Quote"];
-  if (!raw?.["05. price"]) throw new Error(payload?.Information || payload?.Note || `No quote available for ${symbol}`);
-  const quote: MarketQuote = {
+  if (!raw?.["05. price"]) throw new Error(payload?.Information || payload?.Note || `No quote available for ${upper}`);
+  return {
     symbol: upper,
     price: number(raw["05. price"]),
     change: number(raw["09. change"]),
@@ -440,28 +494,55 @@ export async function getStockQuote(symbol: string): Promise<MarketQuote> {
     time: Date.now(),
     source: "alpha-vantage",
   };
-  publish(quote);
-  return quote;
 }
 
-export async function getStockHistory(symbol: string) {
-  if (!env.ALPHA_VANTAGE_API_KEY) {
-    const error = new Error("Alpha Vantage API key is not configured") as ServiceError;
+/**
+ * Stock quote with graceful degradation: fresh cache -> Yahoo chart -> Alpha Vantage (if configured) -> stale cache.
+ * Alpha Vantage's free tier (25 req/day) was the main source of stock 500s and empty/flat charts.
+ */
+export async function getStockQuote(symbol: string): Promise<MarketQuote> {
+  const upper = symbol.toUpperCase().replace(/[^A-Z0-9.-]/g, "");
+  const existing = quoteCache.get(upper);
+  if (existing && Date.now() - existing.time < 60_000) return existing;
+  return cached(`stock-quote:${upper}`, 60_000, async () => {
+    const errors: string[] = [];
+    for (const loader of [yahooQuote, ...(env.ALPHA_VANTAGE_API_KEY ? [alphaVantageQuote] : [])]) {
+      try {
+        const quote = await loader(upper);
+        publish(quote);
+        return quote;
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : String(error));
+      }
+    }
+    if (existing) return { ...existing, source: "cache" as const };
+    const error = new Error(`Live quote unavailable for ${upper}: ${errors.join("; ")}`) as ServiceError;
     error.status = 503;
     throw error;
+  });
+}
+
+export async function getStockHistory(symbol: string, timeframe = "1Y") {
+  const upper = symbol.toUpperCase().replace(/[^A-Z0-9.-]/g, "");
+  const tf = YAHOO_RANGES[timeframe] ? timeframe : "1Y";
+  try {
+    const { candles } = await yahooChart(upper, tf);
+    if (candles.length > 1) return candles;
+  } catch (error) {
+    console.warn(`Yahoo chart failed for ${upper}:`, error instanceof Error ? error.message : error);
   }
-  const upper = normalizeSymbol(symbol);
+  if (!env.ALPHA_VANTAGE_API_KEY) return [];
   return cached(`stock-history:${upper}`, 60 * 60_000, async () => {
     const url = new URL("https://www.alphavantage.co/query");
     url.searchParams.set("function", "TIME_SERIES_DAILY");
-    url.searchParams.set("outputsize", "full");
+    url.searchParams.set("outputsize", "compact");
     url.searchParams.set("symbol", upper);
     url.searchParams.set("apikey", env.ALPHA_VANTAGE_API_KEY!);
     const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
     if (!response.ok) throw new Error(`Stock history request failed with ${response.status}`);
     const payload = await response.json() as any;
     const series = payload?.["Time Series (Daily)"];
-    if (!series) throw new Error(payload?.Information || payload?.Note || `No history available for ${symbol}`);
+    if (!series) throw new Error(payload?.Information || payload?.Note || `No history available for ${upper}`);
     return Object.entries(series).map(([date, value]: [string, any]) => ({
       time: Math.floor(new Date(date).getTime() / 1000),
       open: number(value["1. open"]),
@@ -470,14 +551,14 @@ export async function getStockHistory(symbol: string) {
       close: number(value["4. close"]),
       volume: number(value["5. volume"]),
     })).sort((a, b) => a.time - b.time);
-  });
+  }).catch(() => []);
 }
 
 export async function getMarketPrice(symbol: string, assetType = "crypto") {
+  if (assetType === "stock") return getStockQuote(symbol);
   const upper = normalizeSymbol(symbol);
   const existing = quoteCache.get(upper);
   if (existing && Date.now() - existing.time < env.MARKET_QUOTE_CACHE_SECONDS * 1000) return existing;
-  if (assetType === "stock") return getStockQuote(upper);
   const payload = await getCryptoQuotes([upper]);
   const raw = (payload as any)?.[upper]?.USD;
   if (!raw?.PRICE) throw new Error(`No live market price available for ${upper}`);

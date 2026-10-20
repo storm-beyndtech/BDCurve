@@ -69,6 +69,14 @@ async function start() {
   process.once("SIGTERM", shutdown);
 }
 
+// Log instead of crashing the whole API on a stray rejected promise / socket error.
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection", reason);
+});
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught exception", error);
+});
+
 start().catch((error) => {
   console.error("Failed to start server", error);
   process.exitCode = 1;
