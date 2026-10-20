@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AssetLogo } from "@/components/common/asset-logo";
 import { apiGet } from "@/lib/api";
+import { fetchCryptoHistorical } from "@/lib/historical";
+import { PriceAreaChart } from "@/components/charts/price-area-chart";
 
 const markets = [
 	{ symbol: "BTC", name: "Bitcoin" },
@@ -49,15 +51,11 @@ export function HeroOverkill() {
 			}])));
 		}).catch(() => undefined);
 	}, []);
+	const [btcSeries, setBtcSeries] = useState<{ value: number; time: number }[]>([]);
+	useEffect(() => {
+		void fetchCryptoHistorical("BTC", 7).then(setBtcSeries).catch(() => undefined);
+	}, []);
 	const bitcoin = quotes.BTC;
-	const recentSeries: { value: number }[] = [];
-	const values = recentSeries.map((point) => point.value);
-	const low = values.length ? Math.min(...values) : 0;
-	const high = values.length ? Math.max(...values) : 0;
-	const range = Math.max(high - low, high * 0.001, 1);
-	const chartHeights = values.length >= 4
-		? values.map((value) => 28 + ((value - low) / range) * 72)
-		: [34, 42, 39, 48, 52, 50, 57, 61, 59, 66, 70, 74];
 
 	return (
 		<section className="border-b border-border bg-background">
@@ -105,10 +103,8 @@ export function HeroOverkill() {
 							</div>
 						</div>
 						<div className="px-6 py-6">
-							<div className="mb-5 flex h-32 items-end gap-2 border-b border-border pb-1" aria-label="Portfolio performance illustration">
-								{chartHeights.map((height, index) => (
-									<div key={index} className={`flex-1 rounded-t-sm ${values.length >= 4 ? "bg-primary-600/80" : "bg-muted"}`} style={{ height: `${height}%` }} />
-								))}
+							<div className="mb-5 h-32 border-b border-border pb-1" aria-label="Bitcoin 7-day price chart">
+								<PriceAreaChart symbol="BTC-hero" data={btcSeries} isPositive={(bitcoin?.changePercent ?? 0) >= 0} variant="compact" height="100%" showGrid={false} />
 							</div>
 							<div className="flex items-center justify-between pb-3">
 								<p className="font-semibold">Markets</p>

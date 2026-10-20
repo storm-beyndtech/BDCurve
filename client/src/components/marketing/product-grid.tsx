@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { productList } from "@/lib/products";
@@ -50,7 +50,7 @@ export function ProductGrid({ filterByColor, showCTA = true, variant = "elevated
 										"flex items-center justify-center w-10 h-10 rounded-md flex-shrink-0",
 										product.color === "primary"
 											? "bg-primary-500/10 text-primary-600"
-											: "bg-accent-500/10 text-accent-600",
+											: "bg-primary-500/10 text-primary-600",
 									)}
 								>
 									<Icon className="h-5 w-5" strokeWidth={1.5} />
@@ -66,7 +66,7 @@ export function ProductGrid({ filterByColor, showCTA = true, variant = "elevated
 										<span
 											className={cn(
 												"flex-shrink-0 font-bold leading-none mt-1",
-												product.color === "primary" ? "text-primary-500" : "text-accent-500",
+												product.color === "primary" ? "text-primary-500" : "text-primary-500",
 											)}
 										>
 											â—

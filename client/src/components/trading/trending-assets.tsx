@@ -22,9 +22,9 @@ export interface TrendingAssetsProps {
 }
 
 const categoryColors = {
-	stocks: "text-blue-600 bg-blue-500/10",
-	crypto: "text-purple-600 bg-purple-500/10",
-	etf: "text-emerald-600 bg-emerald-500/10",
+	stocks: "text-muted-foreground bg-muted",
+	crypto: "text-primary-600 bg-primary-500/10",
+	etf: "text-muted-foreground bg-muted",
 };
 
 const categoryLabels = {
@@ -40,8 +40,8 @@ export function TrendingAssets({ assets, className }: TrendingAssetsProps) {
 				{/* Header */}
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-2">
-						<div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-							<Flame className="h-5 w-5 text-orange-600" />
+						<div className="w-10 h-10 rounded-xl bg-primary-500/10 flex items-center justify-center">
+							<Flame className="h-5 w-5 text-primary-600" />
 						</div>
 						<div>
 							<h3 className="text-lg font-semibold">Trending Now</h3>

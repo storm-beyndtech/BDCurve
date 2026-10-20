@@ -34,7 +34,9 @@ export function MapStatsSection({ className }: MapStatsSectionProps) {
 						>
 							<div className="relative w-full">
 								<img
-									src="/map.svg"
+									src="/map.png"
+									width={1600}
+									height={815}
 									alt="Global coverage map"
 									loading="lazy"
 									decoding="async"
@@ -42,20 +44,6 @@ export function MapStatsSection({ className }: MapStatsSectionProps) {
 								/>
 							</div>
 						</motion.div>
-
-						{/* Decorative glow */}
-						<motion.div
-							className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-primary-500/10 blur-3xl"
-							animate={{
-								scale: [1, 1.2, 1],
-								opacity: [0.3, 0.5, 0.3],
-							}}
-							transition={{
-								duration: 8,
-								repeat: Infinity,
-								ease: "easeInOut",
-							}}
-						/>
 					</motion.div>
 				</div>
 			</div>

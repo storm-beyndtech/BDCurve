@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MessageCircle, Mail, BookOpen, Calendar, ArrowRight } from "lucide-react";
@@ -53,10 +53,10 @@ export function SupportCTA({
               href="mailto:support@boundingcurve.com"
               className="group"
             >
-              <div className="p-4 rounded-lg border border-border hover:border-accent-500/50 transition-all hover:shadow-depth">
+              <div className="p-4 rounded-lg border border-border hover:border-primary-500/50 transition-all hover:shadow-depth">
                 <div className="flex flex-col items-center gap-3 text-center">
-                  <div className="w-12 h-12 rounded-xl bg-accent-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Mail className="h-6 w-6 text-accent-600"/>
+                  <div className="w-12 h-12 rounded-xl bg-primary-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Mail className="h-6 w-6 text-primary-600"/>
                   </div>
                   <div>
                     <p className="font-medium">Email Support</p>
@@ -85,10 +85,10 @@ export function SupportCTA({
             </Link>
 
             <Link to="/demo" className="group">
-              <div className="p-4 rounded-lg border border-border hover:border-accent-500/50 transition-all hover:shadow-depth">
+              <div className="p-4 rounded-lg border border-border hover:border-primary-500/50 transition-all hover:shadow-depth">
                 <div className="flex flex-col items-center gap-3 text-center">
-                  <div className="w-12 h-12 rounded-xl bg-accent-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Calendar className="h-6 w-6 text-accent-600"/>
+                  <div className="w-12 h-12 rounded-xl bg-primary-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Calendar className="h-6 w-6 text-primary-600"/>
                   </div>
                   <div>
                     <p className="font-medium">Book Demo</p>

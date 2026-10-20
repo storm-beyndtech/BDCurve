@@ -1,44 +1,20 @@
 import {
 	HeroOverkill,
 	ProductGrid,
-	TrustedByMarquee,
-	CustomerReviewsMarquee,
 	FAQSection,
 	SupportCTA,
-	UseCaseSection,
 	ContentImageSection,
-	GlobalCoverageMap,
-	PlatformCapabilities,
 	MapStatsSection,
-	FeatureCardMarquee,
 	type FAQ,
 } from "@/components/marketing";
 import {
 	MarketOverview,
 	TrendingAssets,
-	ProductHighlights,
-	AssetCategories,
-	defaultProductHighlights,
 	type MarketIndex,
 	type TrendingAsset,
-	type AssetCategory,
 } from "@/components/trading";
-import {
-	Shield,
-	Clock,
-	Lock,
-	DollarSign,
-	TrendingUp,
-	Zap,
-	Bitcoin,
-	BarChart3,
-	Coins,
-	PieChart,
-	Wallet,
-} from "lucide-react";
-import cryptoAsset from "@/assets/crypto.png";
+import { Shield, Lock, Layers, Zap } from "lucide-react";
 import multiCurrencyAsset from "@/assets/fx.svg";
-
 // Mock market data
 const mockMarketIndices: MarketIndex[] = [
 	{ symbol: "S&P 500", name: "Standard & Poor's 500", price: 4783.45, change: 23.12, changePercent: 0.49 },
@@ -142,113 +118,6 @@ const mockTrendingAssets: TrendingAsset[] = [
 	},
 ];
 
-const mockAssetCategories: AssetCategory[] = [
-	{
-		id: "stocks",
-		name: "Stocks",
-		description: "Trade 9,000+ US-listed stocks commission-free with fractional shares starting at $1.",
-		icon: TrendingUp,
-		stats: {
-			available: "9,000+",
-			volume24h: "$45.2M",
-			topGainer: "+8.4%",
-		},
-		features: ["Commission-free trading", "Fractional shares from $1", "Real-time market data"],
-		color: "blue",
-		href: "/products/stocks",
-	},
-	{
-		id: "crypto",
-		name: "Cryptocurrency",
-		description: "Trade 40+ cryptocurrencies 24/7 with true ownership and no transfer fees.",
-		icon: Bitcoin,
-		stats: {
-			available: "40+",
-			volume24h: "$28.3M",
-			topGainer: "+5.7%",
-		},
-		features: ["24/7 trading", "Staking rewards", "Cold storage security"],
-		color: "purple",
-		href: "/products/crypto",
-	},
-	{
-		id: "etfs",
-		name: "ETFs",
-		description: "Diversify with 400+ commission-free ETFs across sectors and strategies.",
-		icon: PieChart,
-		stats: {
-			available: "400+",
-			volume24h: "$12.8M",
-			topGainer: "+2.1%",
-		},
-		features: ["Zero commissions", "Sector & thematic ETFs", "Instant diversification"],
-		color: "emerald",
-		href: "/products/etfs",
-	},
-	{
-		id: "options",
-		name: "Options",
-		description: "Advanced options trading with rebates. Earn $0.06-$0.18 per contract.",
-		icon: BarChart3,
-		stats: {
-			available: "5,000+",
-			volume24h: "$8.5M",
-			topGainer: "+12.3%",
-		},
-		features: ["Earn rebates per contract", "Multi-leg strategies", "Advanced analytics"],
-		color: "orange",
-		href: "/products/options",
-	},
-	{
-		id: "commodities",
-		name: "Commodities",
-		description: "Trade gold, silver, oil, and more through commission-free commodity ETFs.",
-		icon: Coins,
-		stats: {
-			available: "50+",
-			volume24h: "$3.2M",
-			topGainer: "+1.8%",
-		},
-		features: ["Precious metals", "Energy commodities", "Agricultural futures"],
-		color: "amber",
-		href: "/products/commodities",
-	},
-];
-
-// Use cases for the homepage - trading platform
-const useCases = [
-	{
-		title: "Long-Term Wealth Building",
-		description:
-			"Build a diversified portfolio of stocks, ETFs, and index funds for long-term growth. Invest with fractional shares starting at just $1.",
-		benefits: [
-			"Commission-free stock and ETF trading",
-			"Fractional shares - own expensive stocks for $1",
-			"Automatic dividend reinvestment",
-		],
-	},
-	{
-		title: "Active Trading & Options",
-		description:
-			"Trade options with rebates and access advanced strategies. Execute multi-leg trades with professional-grade tools.",
-		benefits: [
-			"Earn $0.06-$0.18 per options contract",
-			"Advanced strategy builder and analytics",
-			"Extended-hours trading (4AM-8PM ET)",
-		],
-	},
-	{
-		title: "Crypto & Alternative Assets",
-		description:
-			"Trade 40+ cryptocurrencies 24/7 with true ownership. Diversify with commodities like gold, silver, and oil.",
-		benefits: [
-			"24/7 crypto trading with no transfer fees",
-			"Staking rewards on ETH and SOL",
-			"Commission-free commodity ETFs",
-		],
-	},
-];
-
 // FAQs for the homepage - trading platform
 const faqs: FAQ[] = [
 	{
@@ -283,197 +152,80 @@ const faqs: FAQ[] = [
 	},
 ];
 
+/**
+ * Landing page — intentionally restrained: one accent (primary blue) + neutrals, few sections,
+ * minimal motion. Story: TradFi meets DeFi — equities and digital assets in one account.
+ */
 export default function HomePage() {
 	return (
 		<>
-			{/* Hero Section */}
+			{/* Hero: "TradFi meets on-chain" + live BTC chart */}
 			<HeroOverkill />
 
-			{/* Trusted By Marquee */}
-			<div className="sm:py-20">
-				<TrustedByMarquee />
-			</div>
-
-			{/* Market Overview - Live Data */}
+			{/* Markets snapshot: indices (TradFi) next to crypto (DeFi) */}
 			<section className="section-spacing-sm w-full">
 				<div className="container-wide container-padding">
 					<MarketOverview indices={mockMarketIndices} cryptos={mockCryptos} />
 				</div>
 			</section>
 
-			{/* Products Grid */}
-			<section className="section-spacing-sm bg-ambient-marketing-section w-full relative">
-				<div className="container-wide container-padding relative z-10">
+			{/* Asset classes */}
+			<section className="section-spacing-sm w-full border-y border-border bg-muted/20">
+				<div className="container-wide container-padding">
 					<ProductGrid variant="glass" showCTA />
 				</div>
 			</section>
 
-			{/* Map Stats Section - Updated for trading */}
-			<MapStatsSection />
-
-			{/* Product Highlights */}
-			<section className="section-spacing-sm w-full">
-				<div className="container-wide container-padding">
-					<div className="mb-12 text-center">
-						<h2 className="text-display-md font-bold mb-4">Why traders choose us</h2>
-						<p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-							Industry-leading features designed for serious investors
-						</p>
-					</div>
-					<ProductHighlights highlights={defaultProductHighlights} />
-				</div>
-			</section>
-
-			{/* Asset Categories */}
-			<section className="section-spacing-sm bg-ambient-marketing-section w-full relative">
-				<div className="container-wide container-padding relative z-10">
-					<div className="mb-12 text-center">
-						<h2 className="text-display-md font-bold mb-4">Invest in what matters to you</h2>
-						<p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-							Access thousands of assets across multiple markets
-						</p>
-					</div>
-					<AssetCategories categories={mockAssetCategories} />
-				</div>
-			</section>
-
-			{/* Use Cases Section */}
-			<section className="section-spacing-sm bg-ambient-marketing-section w-full relative">
-				<div className="container-wide container-padding relative z-10">
-					<div className="mb-12">
-						<h2 className="text-2xl mb-4 font-mono">INVESTMENT STRATEGIES</h2>
-					</div>
-
-					<UseCaseSection useCases={useCases} variant="glass" />
-				</div>
-			</section>
-
-			{/* Stocks & ETFs Section */}
+			{/* The concept: one account for both worlds */}
 			<ContentImageSection
-				title="Trade 9,000+ stocks commission-free"
-				description="Access the full universe of US-listed stocks with zero commissions. From blue-chip companies to emerging growth stocks, build your portfolio with fractional shares and AI-powered insights."
+				title="Stocks and crypto, one account"
+				description="Hold blue-chip equities and ETFs alongside Bitcoin, Ethereum and leading on-chain assets. One balance, one dashboard, one consistent view of your portfolio across traditional and decentralised markets."
 				features={[
-					"Commission-free stock trading",
-					"Fractional shares starting at $1",
-					"AI-powered stock analysis with Alpha",
-					"Real-time market data and alerts",
+					"US equities and ETFs next to 50+ digital assets",
+					"Live market data and charts for every listed asset",
+					"Unified balances in USDT",
+					"Secure custody and verified accounts",
 				]}
 				imagePosition="left"
 				imagePlaceholder={{
 					width: 800,
 					height: 600,
-					alt: "Stock trading dashboard",
+					alt: "Multi-asset trading dashboard",
 					src: multiCurrencyAsset,
 				}}
-				cta={{
-					label: "Explore stocks",
-					href: "/products/stocks",
-				}}
-				variant="elevated"
-			/>
-
-			{/* Crypto & Options Section */}
-			<ContentImageSection
-				title="Trade crypto 24/7 and earn options rebates"
-				description="Access 40+ cryptocurrencies with true ownership and no transfer fees. Trade Bitcoin, Ethereum, Solana, and more around the clock. Plus, earn rebates on every options contract you trade."
-				description2="Advanced options trading with unique rebate program. Execute multi-leg strategies, hedge your portfolio, or generate income with covered calls. Our strategy builder makes complex trades simple."
-				features={[
-					"40+ cryptocurrencies available 24/7",
-					"Earn $0.06-$0.18 per options contract",
-					"Staking rewards on ETH and SOL",
-					"Advanced options strategy builder",
-				]}
-				imagePosition="right"
-				imagePlaceholder={{
-					width: 800,
-					height: 600,
-					alt: "Crypto and options dashboard",
-					src: cryptoAsset,
-				}}
-				cta={{
-					label: "Trade crypto",
-					href: "/products/crypto",
-				}}
+				cta={{ label: "Explore markets", href: "/products" }}
 				variant="default"
 			/>
 
-			{/* Platform Capabilities */}
-			<PlatformCapabilities />
-
-			{/* Trending Assets */}
+			{/* Trending (recharts sparklines) */}
 			<section className="section-spacing-sm w-full">
 				<div className="container-wide container-padding">
 					<TrendingAssets assets={mockTrendingAssets} />
 				</div>
 			</section>
 
-			{/* Features Marquee */}
-			<section className="section-spacing-md w-full relative overflow-hidden">
-				<div className="mb-12 text-center">
-					<h2 className="text-display-md font-bold mb-4">Trade Smarter</h2>
-					<p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-						Professional tools, real-time data, and AI-powered insights
-					</p>
-				</div>
-				<FeatureCardMarquee
-					features={[
-						{ text: "Commission-free stocks & ETFs", color: "primary" },
-						{ text: "Options rebates $0.06-$0.18/contract", color: "accent" },
-						{ text: "24/7 crypto trading", color: "primary" },
-						{ text: "AI-powered Alpha insights", color: "accent" },
-						{ text: "Extended hours 4AM-8PM ET", color: "primary" },
-						{ text: "Fractional shares from $1", color: "accent" },
-						{ text: "Real-time market data", color: "primary" },
-						{ text: "Advanced charting tools", color: "accent" },
-						{ text: "Instant deposits", color: "primary" },
-						{ text: "FINRA & SIPC protected", color: "accent" },
-					]}
-					duration={40}
-					variant="glass"
-				/>
-			</section>
+			{/* Global coverage */}
+			<MapStatsSection />
 
-			{/* Security & Trust Strip */}
-			<section className="section-spacing-md bg-muted/30 border-y border-border w-full relative">
-				<div className="container-wide container-padding relative z-10">
-					<div className="text-center mb-12">
-						<h2 className="text-display-md mb-4">Trusted and secure</h2>
-						<p className="text-lg text-muted-foreground/90 max-w-2xl mx-auto font-medium">
-							Bank-level security with regulatory compliance built in
+			{/* Trust strip */}
+			<section className="section-spacing-md w-full border-y border-border">
+				<div className="container-wide container-padding">
+					<div className="text-center mb-10">
+						<h2 className="text-display-md mb-3">Built on trust</h2>
+						<p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+							Security and transparency across every market we support
 						</p>
 					</div>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 						{[
-							{
-								icon: Shield,
-								title: "FINRA & SIPC",
-								description: "$500K SIPC protection",
-							},
-							{
-								icon: Lock,
-								title: "Bank-Level Security",
-								description: "256-bit encryption",
-							},
-							{
-								icon: TrendingUp,
-								title: "99.994% Uptime",
-								description: "Reliable platform (2024)",
-							},
-							{
-								icon: Zap,
-								title: "24/7 Support",
-								description: "US-based team",
-							},
-						].map((item, index) => (
-							<div
-								key={index}
-								className="flex flex-col items-center text-center p-6 rounded-xl bg-card border border-border shadow-depth"
-							>
-								<div className="w-14 h-14 rounded-xl bg-primary-500/10 flex items-center justify-center mb-4">
-									<item.icon className="h-7 w-7 text-primary-600" />
-								</div>
-								<h3 className="text-lg font-semibold mb-2">{item.title}</h3>
+							{ icon: Shield, title: "Verified accounts", description: "KYC on every account" },
+							{ icon: Lock, title: "Encrypted by default", description: "256-bit encryption in transit and at rest" },
+							{ icon: Layers, title: "Multi-asset", description: "Equities, ETFs and digital assets" },
+							{ icon: Zap, title: "Always on", description: "Crypto markets 24/7" },
+						].map((item) => (
+							<div key={item.title} className="flex flex-col items-start p-5 rounded-xl border border-border bg-card">
+								<item.icon className="h-5 w-5 text-primary-600 mb-3" />
+								<h3 className="font-semibold mb-1">{item.title}</h3>
 								<p className="text-sm text-muted-foreground">{item.description}</p>
 							</div>
 						))}
@@ -481,13 +233,8 @@ export default function HomePage() {
 				</div>
 			</section>
 
-			{/* Customer Reviews Marquee */}
-			<CustomerReviewsMarquee />
-
-			{/* FAQ Section */}
 			<FAQSection title="Frequently asked questions" faqs={faqs} columns={1} />
 
-			{/* Final CTA */}
 			<section className="section-spacing-lg w-full">
 				<div className="container-wide container-padding">
 					<SupportCTA variant="glass" showAllOptions={false} />
