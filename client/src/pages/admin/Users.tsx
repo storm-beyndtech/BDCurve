@@ -358,11 +358,11 @@ export default function UsersManagementPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8 min-w-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">User Management</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">User Management</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage platform users and permissions</p>
         </div>
         <div className="text-right">
@@ -385,7 +385,7 @@ export default function UsersManagementPage() {
       </Card>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
         <Card variant="glass" padding="lg">
           <div className="text-center">
             <p className="text-xs text-muted-foreground">Active Users</p>
@@ -436,31 +436,31 @@ export default function UsersManagementPage() {
               {users.map((user) => (
                 <div
                   key={user._id}
-                  className="flex flex-col gap-4 rounded-lg border border-border px-4 py-4 hover:bg-accent/5 transition-colors"
+                  className="flex flex-col gap-4 rounded-lg border border-border px-3 py-3 sm:px-4 sm:py-4 hover:bg-accent/5 transition-colors min-w-0"
                 >
                   {/* Top Row */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-semibold">
                           {user.firstName || user.lastName ? `${user.firstName} ${user.lastName}`.trim() : user.email || "Unknown User"}
                         </p>
                         {getAccountStatusBadge(user.accountStatus)}
                         {getKYCStatusBadge(user.kycStatus)}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{user.email || "No email"}</p>
+                      <p className="text-xs text-muted-foreground mt-1 break-all">{user.email || "No email"}</p>
                       {user.username && (
                         <p className="text-xs text-muted-foreground mt-0.5">@{user.username}</p>
                       )}
                     </div>
-                    <div className="text-right">
+                    <div className="sm:text-right">
                       <p className="text-lg font-semibold">${getTotalBalance(user).toLocaleString()}</p>
                       <p className="text-xs text-muted-foreground mt-1">Total Balance</p>
                     </div>
                   </div>
 
                   {/* User Details */}
-                  <div className="grid gap-3 md:grid-cols-4 text-sm">
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4 text-sm">
                     <div>
                       <p className="text-xs text-muted-foreground">Total Assets</p>
                       <p className="text-sm mt-0.5">{user.assets?.length || 0} assets</p>
@@ -480,7 +480,7 @@ export default function UsersManagementPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50 sm:flex sm:flex-wrap [&>button]:w-full sm:[&>button]:w-auto">
                     <Button
                       size="sm"
                       variant="outline"
@@ -558,7 +558,7 @@ export default function UsersManagementPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-6 pt-6 border-t border-border">
+          <div className="flex flex-wrap items-center justify-between gap-2 mt-6 pt-6 border-t border-border">
             <Button
               variant="outline"
               size="sm"
@@ -589,16 +589,16 @@ export default function UsersManagementPage() {
       {/* User Details Modal */}
       {selectedUser && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4"
           onClick={() => setSelectedUser(null)}
         >
           <div
-            className="relative max-w-3xl w-full bg-card rounded-2xl border border-border shadow-2xl overflow-hidden"
+            className="relative max-w-3xl w-full max-h-[100dvh] bg-card rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card/95 backdrop-blur-xl">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-border bg-card/95 backdrop-blur-xl">
+              <div className="flex items-center gap-3 min-w-0">
                 <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-accent-500 to-accent-600 flex items-center justify-center">
                   <UserIcon className="h-6 w-6 text-white" />
                 </div>
@@ -618,7 +618,7 @@ export default function UsersManagementPage() {
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 space-y-6 max-h-[80dvh] sm:max-h-[70vh] overflow-y-auto">
               {/* Status Section */}
               <div>
                 <h3 className="text-sm font-semibold mb-3">Account Status</h3>
@@ -1062,7 +1062,7 @@ export default function UsersManagementPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-2 border-t border-border">
+              <div className="flex flex-wrap justify-end gap-3 pt-2 border-t border-border">
                 <Button variant="outline" onClick={() => setSelectedUser(null)}>
                   Cancel
                 </Button>

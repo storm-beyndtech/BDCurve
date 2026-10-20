@@ -584,3 +584,12 @@
 	font-size: 20px;
 	color: #555;
 }
+
+/* Prevent iOS Safari auto-zoom on focus: form controls must be >= 16px on small screens */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

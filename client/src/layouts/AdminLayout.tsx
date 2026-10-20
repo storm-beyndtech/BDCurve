@@ -52,7 +52,7 @@ export default function AdminLayout() {
           }}
         />
 
-        <div className="relative z-10 flex gap-2">
+        <div className="relative z-10 flex gap-2 min-w-0">
           {/* Sidebar spacer + nav */}
           <div className="hidden lg:block">
             <div className="w-72" />
@@ -60,10 +60,11 @@ export default function AdminLayout() {
           </div>
 
           {/* Main Content */}
-          <main className="relative w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6 lg:py-8 max-w-7xl mx-auto">
-            <header className="flex items-center justify-between mb-4 lg:mb-6">
+          <main className="relative w-full min-w-0 overflow-x-hidden px-3 sm:px-6 lg:px-8 xl:px-10 py-6 lg:py-8 max-w-7xl mx-auto">
+            <header className="lg:hidden sticky top-0 z-30 -mx-3 sm:-mx-6 px-3 sm:px-6 py-2 mb-4 flex items-center justify-between bg-background/90 backdrop-blur">
               <button
                 className="lg:hidden p-2 rounded-lg border border-border/60 bg-card/80 shadow-sm"
+                aria-label="Open admin menu"
                 onClick={() => setMobileOpen(true)}
               >
                 <Menu className="h-5 w-5" />
@@ -76,7 +77,7 @@ export default function AdminLayout() {
         {/* Mobile overlay nav */}
         {mobileOpen && (
           <div className="lg:hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={() => setMobileOpen(false)}>
-            <div className="absolute top-4 left-4 bottom-4 w-64" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute top-4 left-4 bottom-4 w-64 max-w-[85vw] overflow-y-auto" onClick={(e) => { e.stopPropagation(); if ((e.target as HTMLElement).closest("a")) setMobileOpen(false); }}>
               <AdminSidebarNav hideOnMobile={false} className="block lg:hidden" />
             </div>
           </div>

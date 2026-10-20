@@ -11,7 +11,32 @@ export const contactRouter = Router();
 export const withdrawalsRouter = Router();
 
 walletRouter.use(authenticate);
-walletRouter.get("/all", requireAdmin, async (_req, res) => res.json({ wallets: await Wallet.find().populate("userId", "email name").sort({ createdAt: -1 }) }));
+const serializeWallet = (w: any) => {
+  const o = typeof w.toObject === "function" ? w.toObject() : w;
+  return { ...o, walletAddress: o.address, connectionMethod: o.provider || "manual", connectedAt: o.createdAt };
+};
+walletRouter.get("/all", requireAdmin, async (_req, res) => {
+  const wallets = await Wallet.find().populate("userId", "email name uid").sort({ createdAt: -1 });
+  res.json({ wallets: wallets.map(serializeWallet) });
+});
+walletRouter.post("/", requireAdmin, async (req, res) => {
+  const address = String(req.body.address || "").trim();
+  const provider = String(req.body.provider || "manual").trim();
+  const network = String(req.body.network || "").trim();
+  const status = String(req.body.status || "connected").trim();
+  const userEmail = String(req.body.userEmail || "").trim().toLowerCase();
+  if (!address) return res.status(400).json({ message: "Wallet address is required" });
+  let userId: unknown = undefined;
+  if (userEmail) {
+    const user = await User.findOne({ email: userEmail });
+    if (!user) return res.status(404).json({ message: "No user found with that email" });
+    userId = user._id;
+  }
+  const wallet = await Wallet.create({ address, provider, network, status, userId });
+  await AuditLog.create({ actorId: req.user!._id, action: "wallet.create", targetType: "Wallet", targetId: String(wallet._id), metadata: { address, network, userEmail } });
+  await wallet.populate("userId", "email name uid");
+  res.status(201).json({ message: "Wallet created", wallet: serializeWallet(wallet) });
+});
 
 adminRouter.use(authenticate, requireAdmin);
 adminRouter.get("/audit-logs", async (req, res) => {

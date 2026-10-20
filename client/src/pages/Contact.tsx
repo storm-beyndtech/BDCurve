@@ -25,7 +25,8 @@ const contactMethods = [
 	{
 		icon: Phone,
 		title: "Phone",
-		description: "+1 (214) 898-4416",
+		description: "+1 (606) 913-4456",
+		href: "tel:+16069134456",
 		detail: "Mon-Fri, 9am-6pm EST",
 		color: "primary" as const,
 	},
@@ -100,7 +101,13 @@ export default function ContactPage() {
 										</div>
 										<div>
 											<h3 className="font-semibold mb-1">{method.title}</h3>
-											<p className="text-sm text-foreground">{method.description}</p>
+											{"href" in method && method.href ? (
+												<a href={method.href} className="text-sm text-foreground hover:underline">
+													{method.description}
+												</a>
+											) : (
+												<p className="text-sm text-foreground">{method.description}</p>
+											)}
 											<p className="text-xs text-muted-foreground mt-2">{method.detail}</p>
 										</div>
 									</div>
