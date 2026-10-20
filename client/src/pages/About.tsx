@@ -20,7 +20,28 @@ import {
 	Sparkles,
 	LineChart,
 } from "lucide-react";
-import aboutHeroAsset from "@/assets/finance-2.svg";
+import { MarketPanel, demoSeries } from "@/components/marketing/visuals";
+import { Landmark, Coins as CoinsIcon, ShieldCheck as ShieldCheckIcon } from "lucide-react";
+
+function AboutHeroPanel() {
+	return (
+		<div className="flex h-full items-center">
+			<MarketPanel
+				eyebrow="One platform · two worlds"
+				value="TradFi + DeFi"
+				pill="Since 2024"
+				series={demoSeries(3, 30, 0.8)}
+				listTitle="What we bring together"
+				rows={[
+					{ label: "Traditional markets", sub: "US equities & ETFs", value: "50+", icon: Landmark },
+					{ label: "Digital assets", sub: "Leading tokens, 24/7", value: "59", icon: CoinsIcon },
+					{ label: "Verified accounts", sub: "KYC & reviewed withdrawals", value: "100%", icon: ShieldCheckIcon },
+				]}
+				callout={{ title: "Built for confident decisions", sub: "Live data, one balance, one dashboard" }}
+			/>
+		</div>
+	);
+}
 
 const values = [
 	{
@@ -93,8 +114,7 @@ export default function AboutPage() {
 					{ icon: Globe2, text: "Millions of Investors" },
 					{ icon: Users, text: "99.9% Uptime" },
 				]}
-				heroAsset={aboutHeroAsset}
-				heroAssetClassName="dark:brightness-90"
+				customVisual={AboutHeroPanel}
 				visualBackground="network"
 				colorTheme="blue"
 			/>

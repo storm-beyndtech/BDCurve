@@ -267,7 +267,7 @@ export default function DepositsApprovalPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Deposit Approvals</h1>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Deposit Approvals</h1>
         <p className="text-sm text-muted-foreground mt-1">Review and approve pending deposits</p>
       </div>
 
@@ -388,7 +388,7 @@ export default function DepositsApprovalPage() {
                     <div>
                       <p className="text-xs text-muted-foreground">Wallet Address</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <p className="font-mono text-xs truncate max-w-[200px]">
+                        <p className="font-mono text-xs truncate max-w-full sm:max-w-[200px]">
                           {deposit.walletData?.address || "—"}
                         </p>
                         <button
@@ -402,7 +402,7 @@ export default function DepositsApprovalPage() {
                   </div>
 
                   {editingDepositId === deposit._id && (
-                    <div className="grid gap-3 rounded-lg border border-border/70 bg-muted/20 p-3 md:grid-cols-4">
+                    <div className="grid gap-3 rounded-lg border border-border/70 bg-muted/20 p-3 grid-cols-2 md:grid-cols-4">
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Amount</p>
                         <Input

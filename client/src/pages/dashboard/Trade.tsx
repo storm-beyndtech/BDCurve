@@ -41,7 +41,8 @@ export default function TradePage() {
 
 	// Trading form state
 	const [action, setAction] = useState<"buy" | "sell">("buy");
-	const [quantity, setQuantity] = useState<string>("1");
+	// Start empty: defaulting to 1 unit made the page immediately show "Insufficient balance" for e.g. 1 share at $368.
+	const [quantity, setQuantity] = useState<string>("");
 	const [orderType, setOrderType] = useState<"market" | "limit">("market");
 	const [limitPrice, setLimitPrice] = useState<string>("");
 
@@ -49,7 +50,7 @@ export default function TradePage() {
 	const [usdtBalance, setUsdtBalance] = useState<number>(0);
 	const [holdings, setHoldings] = useState<Record<string, number>>({});
 	// Single platform-wide minimum order value (USD), configured by admins; server enforces the same value.
-	const [minTradeAmount, setMinTradeAmount] = useState<number>(10);
+	const [minTradeAmount, setMinTradeAmount] = useState<number>(100);
 	const live = useLiveQuote(
 		selectedAsset?.symbol || "",
 		assetType,
@@ -247,7 +248,7 @@ export default function TradePage() {
 				await fetchUserBalance();
 
 				// Reset form
-				setQuantity("1");
+				setQuantity("");
 				setLimitPrice("");
 			} else {
 				throw new Error(response.message || "Trade failed");
@@ -523,7 +524,7 @@ export default function TradePage() {
 												</div>
 
 												{/* Warning for insufficient balance */}
-												{action === "buy" && calculateTotal() > usdtBalance && (
+												{action === "buy" && orderTotal > 0 && orderTotal > usdtBalance && (
 													<div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 flex items-start gap-2">
 														<AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
 														<div className="flex-1">

@@ -42,6 +42,8 @@ export {
   TrustedByMarquee,
   CustomerReviewsMarquee,
   TrustedByMarqueeCompact,
+  CopyTradersMarquee,
+  LightMarquee,
 } from "./trusted-by-marquee";
 export {
   StatsRibbon,

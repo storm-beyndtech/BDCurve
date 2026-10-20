@@ -324,7 +324,7 @@ export default function WithdrawalsApprovalPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Withdrawal Approvals</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Withdrawal Approvals</h1>
           <p className="text-sm text-muted-foreground mt-1">Review and process pending withdrawals (Manual Mode)</p>
         </div>
       </div>
@@ -463,7 +463,7 @@ export default function WithdrawalsApprovalPage() {
                     <div>
                       <p className="text-xs text-muted-foreground">Wallet Address</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <p className="font-mono text-xs truncate max-w-[300px]">{withdrawal.walletAddress}</p>
+                        <p className="font-mono text-xs break-all sm:truncate sm:max-w-[300px]">{withdrawal.walletAddress}</p>
                         <button
                           onClick={() => copyToClipboard(withdrawal.walletAddress)}
                           className="p-1 hover:bg-accent/10 rounded"
@@ -475,7 +475,7 @@ export default function WithdrawalsApprovalPage() {
                   </div>
 
                   {editingWithdrawalId === withdrawal._id && (
-                    <div className="grid gap-3 rounded-lg border border-border/70 bg-muted/20 p-3 md:grid-cols-4">
+                    <div className="grid gap-3 rounded-lg border border-border/70 bg-muted/20 p-3 grid-cols-2 md:grid-cols-4">
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Amount</p>
                         <Input

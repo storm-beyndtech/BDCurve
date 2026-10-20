@@ -158,7 +158,7 @@ export default function TransactionsPage() {
     return (
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Transactions</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Transactions</h1>
           <p className="text-sm text-muted-foreground mt-1">Recent activity across all rails.</p>
         </div>
         <Card variant="glass" padding="lg">
@@ -174,7 +174,7 @@ export default function TransactionsPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Transactions</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Transactions</h1>
           <p className="text-sm text-muted-foreground mt-1">Recent activity across all rails.</p>
         </div>
         <div className="text-right">
@@ -198,7 +198,7 @@ export default function TransactionsPage() {
           </div>
 
           {/* Filter Row */}
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-4">
             <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground">Type</label>
               <select
@@ -251,11 +251,11 @@ export default function TransactionsPage() {
       </Card>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
         <Card variant="glass" padding="lg">
           <div className="text-center">
             <p className="text-xs text-muted-foreground">Total Transactions</p>
-            <p className="text-2xl font-semibold mt-1">{allTxns.length}</p>
+            <p className="text-lg sm:text-2xl font-semibold mt-1 break-words">{allTxns.length}</p>
           </div>
         </Card>
         <Card variant="glass" padding="lg">
@@ -273,7 +273,7 @@ export default function TransactionsPage() {
         <Card variant="glass" padding="lg">
           <div className="text-center">
             <p className="text-xs text-muted-foreground">Completed</p>
-            <p className="text-2xl font-semibold mt-1 text-green-600">
+            <p className="text-lg sm:text-2xl font-semibold mt-1 break-words text-green-600">
               {allTxns.filter((t) => t.status === "completed" || t.status === "approved").length}
             </p>
           </div>
@@ -281,7 +281,7 @@ export default function TransactionsPage() {
         <Card variant="glass" padding="lg">
           <div className="text-center">
             <p className="text-xs text-muted-foreground">Pending</p>
-            <p className="text-2xl font-semibold mt-1 text-orange-600">
+            <p className="text-lg sm:text-2xl font-semibold mt-1 break-words text-orange-600">
               {allTxns.filter((t) => t.status === "pending").length}
             </p>
           </div>
@@ -301,7 +301,28 @@ export default function TransactionsPage() {
           {paginatedTxns.length === 0 ? (
             <div className="text-center py-12 text-sm text-muted-foreground">No transactions found</div>
           ) : (
-            <table className="w-full text-sm">
+            <>
+            {/* Mobile: stacked cards */}
+            <ul className="space-y-2 sm:hidden">
+              {paginatedTxns.map((t) => {
+                const amount = Number(t.amount || 0);
+                const isProfit = t.type === "profit";
+                return (
+                  <li key={t.id || t._id} className="rounded-lg border border-border p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`font-semibold text-sm ${isProfit ? "text-green-600" : ""}`}>{kindLabel[t.type] ?? t.type}</span>
+                      <Badge variant={t.status === "completed" ? "success" : t.status === "pending" ? "warning" : t.status === "failed" || t.status === "rejected" ? "destructive" : "outline"}>{t.status}</Badge>
+                    </div>
+                    <div className="mt-1 flex items-end justify-between gap-2">
+                      <p className="min-w-0 truncate text-xs text-muted-foreground">{t.description || "No description"}</p>
+                      <p className={`shrink-0 text-sm font-semibold ${isProfit && amount >= 0 ? "text-green-600" : ""}`}>{isProfit && amount >= 0 ? "+" : ""}{formatTransactionAmount(amount, t.currency || t.symbol)}</p>
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">{new Date(t.createdAt).toLocaleString()}</p>
+                  </li>
+                );
+              })}
+            </ul>
+            <table className="hidden w-full text-sm sm:table">
               <thead>
                 <tr className="text-left text-muted-foreground border-b border-border">
                   <th className="pb-3 font-medium">Type</th>
@@ -350,12 +371,13 @@ export default function TransactionsPage() {
                 })}
               </tbody>
             </table>
+            </>
           )}
         </CardContent>
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-6 pt-6 border-t border-border">
+          <div className="flex items-center justify-between gap-2 mt-6 pt-6 border-t border-border">
             <Button
               variant="outline"
               size="sm"

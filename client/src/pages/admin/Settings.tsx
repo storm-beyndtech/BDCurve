@@ -93,7 +93,7 @@ export default function AdminSettingsPage() {
 	// UI state
 	const [showAddressFor, setShowAddressFor] = useState<Set<string>>(new Set());
 
-	const [minTradeAmount, setMinTradeAmount] = useState("10");
+	const [minTradeAmount, setMinTradeAmount] = useState("100");
 	const [savingMinTrade, setSavingMinTrade] = useState(false);
 
 	useEffect(() => {

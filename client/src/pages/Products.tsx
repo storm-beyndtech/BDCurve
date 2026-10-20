@@ -4,6 +4,7 @@ import { ProductGrid } from "@/components/marketing";
 import {
   BackgroundGrid,
   SubtleBlurOrbs,
+  LiveCryptoPanel,
 } from "@/components/marketing/visuals";
 import { ArrowRight } from "lucide-react";
 
@@ -19,7 +20,8 @@ export default function ProductsOverviewPage() {
       {/* Hero Section */}
       <section className="section-spacing-lg">
         <div className="container-wide container-padding">
-          <div className="max-w-4xl mx-auto text-center space-y-6">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
+          <div className="space-y-6 text-center lg:text-left">
             <Badge variant="glass" className="shadow-depth">
               Complete Platform
             </Badge>
@@ -31,12 +33,12 @@ export default function ProductsOverviewPage() {
               </span>
             </h1>
 
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto lg:mx-0">
               Comprehensive trading platform with stocks, ETFs, options, crypto, commodities,
               and professional tools to help you invest with confidence.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
               <Button variant="primary" size="xl" className="gap-2 group">
                 Start investing now
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
@@ -46,6 +48,12 @@ export default function ProductsOverviewPage() {
                 Schedule a demo
               </Button>
             </div>
+          </div>
+          <LiveCryptoPanel
+            symbols={["BTC", "ETH", "SOL", "XRP"]}
+            eyebrow="Markets"
+            callout={{ title: "Stocks, ETFs and crypto", sub: "Every asset class in one account" }}
+          />
           </div>
         </div>
       </section>

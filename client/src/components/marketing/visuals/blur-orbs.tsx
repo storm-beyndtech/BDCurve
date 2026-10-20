@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -118,8 +118,11 @@ export function BlurOrbs({
   orbs = defaultMarketingOrbs,
   opacity = 0.4,
   className,
-  animate = true,
+  animate = false,
 }: BlurOrbsProps) {
+  // Perf/iOS: no CSS filter blur and no infinite motion. Large blurred, continuously-transformed layers
+  // (up to 180px blur on 600px orbs) under backdrop-filter glass panels exhausted iOS WebKit GPU memory
+  // and crashed auth pages. The radial gradient alone already gives a soft glow.
   return (
     <div
       className={cn("absolute inset-0 overflow-hidden pointer-events-none", className)}
@@ -134,7 +137,6 @@ export function BlurOrbs({
             left: `${orb.x}%`,
             top: `${orb.y}%`,
             background: `radial-gradient(circle, ${orb.color} 0%, transparent 70%)`,
-            filter: `blur(${orb.blur ?? 80}px)`,
             opacity,
             transform: "translate(-50%, -50%)",
           }}
@@ -147,12 +149,7 @@ export function BlurOrbs({
                 }
               : undefined
           }
-          transition={{
-            duration: orb.duration ?? 20,
-            delay: orb.delay ?? 0,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}/>
+          transition={animate ? { duration: orb.duration ?? 20, delay: orb.delay ?? 0, repeat: Infinity, ease: "easeInOut" } : undefined}/>
       ))}
     </div>
   );

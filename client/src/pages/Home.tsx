@@ -5,6 +5,9 @@ import {
 	SupportCTA,
 	ContentImageSection,
 	MapStatsSection,
+	TrustedByMarquee,
+	CopyTradersMarquee,
+	CustomerReviewsMarquee,
 	type FAQ,
 } from "@/components/marketing";
 import {
@@ -15,6 +18,7 @@ import {
 } from "@/components/trading";
 import { Shield, Lock, Layers, Zap } from "lucide-react";
 import multiCurrencyAsset from "@/assets/fx.svg";
+import cryptoAsset from "@/assets/crypto.png";
 // Mock market data
 const mockMarketIndices: MarketIndex[] = [
 	{ symbol: "S&P 500", name: "Standard & Poor's 500", price: 4783.45, change: 23.12, changePercent: 0.49 },
@@ -162,6 +166,9 @@ export default function HomePage() {
 			{/* Hero: "TradFi meets on-chain" + live BTC chart */}
 			<HeroOverkill />
 
+			{/* Partners strip */}
+			<TrustedByMarquee />
+
 			{/* Markets snapshot: indices (TradFi) next to crypto (DeFi) */}
 			<section className="section-spacing-sm w-full">
 				<div className="container-wide container-padding">
@@ -196,6 +203,25 @@ export default function HomePage() {
 				cta={{ label: "Explore markets", href: "/products" }}
 				variant="default"
 			/>
+
+			{/* Restored: crypto around the clock */}
+			<ContentImageSection
+				title="Digital assets, around the clock"
+				description="Trade Bitcoin, Ethereum, Solana and 50+ leading tokens 24/7 with live pricing, then move between crypto and equities from the same USDT balance."
+				features={[
+					"24/7 crypto markets with live quotes",
+					"Clear platform-wide minimums, no hidden tiers",
+					"Copy experienced traders across asset classes",
+					"Fast deposits and reviewed withdrawals",
+				]}
+				imagePosition="right"
+				imagePlaceholder={{ width: 800, height: 600, alt: "Crypto trading dashboard", src: cryptoAsset }}
+				cta={{ label: "Trade crypto", href: "/products/crypto" }}
+				variant="default"
+			/>
+
+			{/* Copy traders */}
+			<CopyTradersMarquee />
 
 			{/* Trending (recharts sparklines) */}
 			<section className="section-spacing-sm w-full">
@@ -232,6 +258,9 @@ export default function HomePage() {
 					</div>
 				</div>
 			</section>
+
+			{/* Testimonials */}
+			<CustomerReviewsMarquee />
 
 			<FAQSection title="Frequently asked questions" faqs={faqs} columns={1} />
 

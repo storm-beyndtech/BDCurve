@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/components/providers/auth-provider";
-import { BackgroundGrid, SubtleBlurOrbs } from "@/components/marketing/visuals";
+import { BackgroundGrid } from "@/components/marketing/visuals";
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { AuthSidePanel } from "@/components/auth/auth-side-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { COUNTRIES } from "@/lib/countries";
 import { ThemeToggle } from "@/components/ui/toggle-theme";
@@ -91,11 +92,11 @@ export default function SignUpPage() {
 			{/* Background Elements */}
 			<div className="absolute inset-0 -z-10">
 				<BackgroundGrid variant="dots" cellSize={40} opacity={0.1} />
-				<SubtleBlurOrbs context="marketing" />
+				
 			</div>
 
 			{/* Top Navigation */}
-			<div className="absolute top-0 left-0 right-0 z-50 bg-glass-nav border-b border-glass backdrop-blur-xl">
+			<div className="absolute top-0 left-0 right-0 z-50 bg-background/95 border-b border-border">
 				<div className="container-wide container-padding">
 					<div className="flex h-16 items-center justify-between">
 						<Link to="/" className="flex items-center group">
@@ -345,77 +346,7 @@ export default function SignUpPage() {
 							transition={{ duration: 0.6, delay: 0.2 }}
 							className="hidden lg:block"
 						>
-							<div className="space-y-8">
-								<div>
-									<h2 className="text-3xl font-bold mb-4">
-										Join{" "}
-										<span className="text-primary-600">
-											smart investors
-										</span>
-									</h2>
-									<p className="text-lg text-muted-foreground leading-relaxed">
-										Start your investing journey with commission-free trading in minutes. No credit card
-										required.
-									</p>
-								</div>
-
-								<div className="space-y-4">
-									{steps.map((step, index) => {
-										const Icon = step.icon;
-										return (
-											<motion.div
-												key={step.title}
-												initial={{ opacity: 0, y: 20 }}
-												animate={{ opacity: 1, y: 0 }}
-												transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
-											>
-												<Card variant="glass" padding="lg" className="hover:shadow-depth-md transition-all">
-													<div className="flex items-start gap-4">
-														<div className="w-12 h-12 rounded-xl bg-primary-500/10 flex items-center justify-center flex-shrink-0">
-															<Icon className="h-6 w-6 text-primary-600" />
-														</div>
-														<div>
-															<h3 className="font-semibold mb-1">{step.title}</h3>
-															<p className="text-sm text-muted-foreground">{step.description}</p>
-														</div>
-													</div>
-												</Card>
-											</motion.div>
-										);
-									})}
-								</div>
-
-								{/* What You Get */}
-								<Card variant="elevated" padding="lg" className="bg-muted/30">
-									<div className="space-y-3">
-										<h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
-											What you get
-										</h3>
-										<div className="space-y-2">
-											<div className="flex items-start gap-2">
-												<CheckCircle2 className="h-4 w-4 text-primary-600 mt-0.5 flex-shrink-0" />
-												<span className="text-sm">Multi-currency accounts in 50+ currencies</span>
-											</div>
-											<div className="flex items-start gap-2">
-												<CheckCircle2 className="h-4 w-4 text-primary-600 mt-0.5 flex-shrink-0" />
-												<span className="text-sm">Virtual & physical card issuing</span>
-											</div>
-											<div className="flex items-start gap-2">
-												<CheckCircle2 className="h-4 w-4 text-primary-600 mt-0.5 flex-shrink-0" />
-												<span className="text-sm">Global payouts in 89 countries</span>
-											</div>
-											<div className="flex items-start gap-2">
-												<CheckCircle2 className="h-4 w-4 text-primary-600 mt-0.5 flex-shrink-0" />
-												<span className="text-sm">Developer-friendly APIs & webhooks</span>
-											</div>
-											<div className="flex items-start gap-2">
-												<CheckCircle2 className="h-4 w-4 text-primary-600 mt-0.5 flex-shrink-0" />
-												<span className="text-sm">24/7 support & full documentation</span>
-											</div>
-										</div>
-									</div>
-								</Card>
-							</div>
+							<AuthSidePanel mode="signup" />
 						</motion.div>
 					</div>
 				</div>

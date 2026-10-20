@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { ContactForm } from "@/components/marketing/contact-form";
 import { SupportCTA } from "@/components/marketing/support-cta";
 import { BackgroundGrid, SubtleBlurOrbs } from "@/components/marketing/visuals";
+import { MarketPanel } from "@/components/marketing/visuals";
 import { Mail, MapPin, MessageCircle, Phone, Clock, Globe, BookOpen, Calendar } from "lucide-react";
 
 const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : "")).replace(/\/$/, "");
@@ -62,7 +63,8 @@ export default function ContactPage() {
 			{/* Hero Section */}
 			<section className="py-16 sm:py-20 w-full">
 				<div className="container-wide container-padding">
-					<div className="max-w-3xl mx-auto text-center space-y-5">
+					<div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-2">
+					<div className="space-y-5 text-center lg:text-left">
 						<Badge variant="glass" className="shadow-depth">
 							Contact Us
 						</Badge>
@@ -75,6 +77,21 @@ export default function ContactPage() {
 							Have questions about our trading platform, features, or how Bounding Curve can help you
 							invest smarter? Our team is here to help.
 						</p>
+					</div>
+					<MarketPanel
+						className="hidden sm:block"
+						eyebrow="Support desk"
+						value="< 1 hour"
+						pill="Online"
+						pillTone="positive"
+						listTitle="Ways to reach us"
+						rows={[
+							{ label: "Email", sub: "support@boundingcurve.com", value: "24/7", icon: Mail },
+							{ label: "Phone", sub: "+1 (606) 913-4456", value: "Mon–Fri", icon: Phone },
+							{ label: "Live chat", sub: "From your dashboard", value: "Instant", icon: MessageCircle },
+						]}
+						callout={{ title: "Real people, fast answers", sub: "Average first response under an hour" }}
+					/>
 					</div>
 				</div>
 			</section>
