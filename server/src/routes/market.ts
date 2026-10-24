@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { Coin, Stock } from "../models/Market.js";
 import { authenticate, requireAdmin } from "../middleware/auth.js";
-import { getCryptoHistory, getMarketPrice, getStockHistory, getStockQuote, marketData } from "../services/marketData.js";
+import { getCryptoHistory, getMarketPrice, getStockHistory, getStockQuote, getStockSnapshots, marketData } from "../services/marketData.js";
 import { getLatestBlock, rpcUrls, type RpcNetwork } from "../services/rpc.js";
 import { cryptoCompareApiKey, env } from "../config/env.js";
 import { defaultCoins, defaultStocks } from "../config/catalogue.js";
@@ -96,9 +96,19 @@ marketRouter.get("/stocks", async (_req, res) => {
     const symbol = String(stock.symbol).toUpperCase();
     catalogue.set(symbol, { ...catalogue.get(symbol), ...stock, symbol });
   }
-  res.json([...catalogue.values()].filter((stock) => stock.enabled !== false).map((stock) => {
+  const enabled = [...catalogue.values()].filter((stock) => stock.enabled !== false);
+  let snaps = new Map<string, any>();
+  try {
+    snaps = await getStockSnapshots(enabled.map((stock) => String(stock.symbol).toUpperCase()));
+  } catch (error) {
+    console.warn("Stock snapshots unavailable:", error instanceof Error ? error.message : error);
+  }
+  res.set("Cache-Control", "public, max-age=30");
+  res.json(enabled.map((stock) => {
+    const snap = snaps.get(String(stock.symbol).toUpperCase());
+    if (snap) return { ...stock, price: snap.price, change: snap.change, changePercent: snap.changePercent, previousClose: snap.previousClose, sparkline: snap.sparkline, quoteUpdatedAt: snap.fetchedAt };
     const live = marketData.getQuote(stock.symbol);
-    return live ? { ...stock, price: live.price, change: live.change, changePercent: live.changePercent } : stock;
+    return live ? { ...stock, price: live.price, change: live.change, changePercent: live.changePercent, sparkline: [] } : { ...stock, sparkline: [] };
   }));
 });
 marketRouter.post("/stock/add", authenticate, requireAdmin, async (req, res) => {

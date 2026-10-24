@@ -3,11 +3,13 @@ import { subscribeMarketSymbol, unsubscribeMarketSymbol } from "@/lib/wsClient";
 import { useAppSelector } from "./useTypedRedux";
 
 type AssetType = "stock" | "crypto";
+// Stable empty array: returning a fresh [] from a selector forces a re-render on every store update.
+const EMPTY_SERIES: never[] = [];
 
 export const useLiveQuote = (symbol: string, type: AssetType = "stock", enabled = true) => {
 	const upper = symbol?.toUpperCase();
 	const quote = useAppSelector((s) => (upper ? s.market.quotes[upper] : undefined));
-	const series = useAppSelector((s) => (upper ? (s.market.series[upper] || []) : []));
+	const series = useAppSelector((s) => (upper ? (s.market.series[upper] || EMPTY_SERIES) : EMPTY_SERIES));
 	const status = useAppSelector((s) => s.ws.status);
 
 	useEffect(() => {

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { PriceAreaChart } from "@/components/charts/price-area-chart";
 import { AssetLogo } from "@/components/common/asset-logo";
 import { apiGet } from "@/lib/api";
@@ -67,6 +67,21 @@ const timeframeToStockParam: Record<Timeframe, string> = {
 	"1Y": "1Y",
 };
 
+const EMPTY_SERIES: { value: number; time?: number }[] = [];
+const MemoPriceAreaChart = memo(PriceAreaChart);
+
+/** Emits the latest value at most once per `ms` (trailing update guaranteed). */
+function useThrottledValue<T>(value: T, ms: number): T {
+	const [throttled, setThrottled] = useState(value);
+	const last = useRef(0);
+	useEffect(() => {
+		const wait = Math.max(0, ms - (Date.now() - last.current));
+		const id = window.setTimeout(() => { last.current = Date.now(); setThrottled(value); }, wait);
+		return () => window.clearTimeout(id);
+	}, [value, ms]);
+	return throttled;
+}
+
 const mapHistoricalToSeries = (candles: Candle[]) =>
 	candles.map((c) => ({
 		value: Number(c.close ?? c.c ?? 0),
@@ -85,47 +100,35 @@ export default function StockDetailsPage() {
 	const upperSymbol = useMemo(() => symbol?.toUpperCase() ?? "", [symbol]);
 	const live = useLiveQuote(upperSymbol, asset?.type || "stock", asset?.type === "crypto");
 
+	// Live crypto ticks: update the header at most once per second (each tick used to re-render the whole page)
+	const lastTickRef = useRef(0);
 	useEffect(() => {
-		if (!live.quote || !asset || asset.type !== "crypto") return;
+		if (!live.quote || asset?.type !== "crypto") return;
+		const now = Date.now();
+		if (now - lastTickRef.current < 1000) return;
+		lastTickRef.current = now;
+		const q = live.quote;
 		setAsset((current) => current ? {
 			...current,
-			currentPrice: live.quote!.price,
-			changePercent: live.quote!.changePercent,
-			volume: live.quote!.volume ?? current.volume,
+			currentPrice: q.price,
+			changePercent: q.changePercent,
+			volume: q.volume ?? current.volume,
 		} : current);
-		// chartData stays the immutable history; live ticks are merged at render time (see displayChartData)
-	}, [live.quote]);
+	}, [live.quote, asset?.type]);
 
+	// 1) Asset metadata + quote: loaded once per symbol (not on every timeframe switch)
 	useEffect(() => {
 		if (!upperSymbol) return;
-
-		const loadAsset = async () => {
-			setLoading(true);
+		let cancelled = false;
+		setLoading(true);
+		(async () => {
 			try {
-				// Check crypto list first to decide asset type
 				const coins: any[] = (await apiGet<any[]>("/api/coins").catch(() => [])) || [];
 				const coin = coins.find((c) => c.symbol === upperSymbol);
-
+				if (cancelled) return;
 				if (coin) {
 					const safePrice = Number.isFinite(coin.price) && coin.price > 0 ? coin.price : 0;
 					const safeChange = Number.isFinite(coin.change24h) ? coin.change24h : 0;
-
-					const { endpoint, limit } = timeframeToCryptoEndpoint[timeframe];
-
-					const hist = await apiGet<any>(
-						`/api/market/crypto/historical?endpoint=${endpoint}&symbol=${upperSymbol}&currency=USD&limit=${limit}`
-					).catch((err) => {
-						console.error(`[CRYPTO HIST CLIENT] CryptoCompare API failed for ${upperSymbol}:`, err);
-						return null;
-					});
-
-					let chartData = (hist?.Data?.Data && mapHistoricalToSeries(hist.Data.Data)) || [];
-
-					if (!chartData.length) {
-						console.warn(`[CRYPTO HIST CLIENT] ⚠️ ${upperSymbol} no historical data available`);
-						chartData = [];
-					}
-
 					setAsset({
 						type: "crypto",
 						symbol: coin.symbol,
@@ -147,31 +150,19 @@ export default function StockDetailsPage() {
 						rank: coin.rank,
 						maxSupply: coin.maxSupply,
 						circulatingSupply: coin.circulatingSupply,
-						chartData,
+						chartData: [],
 					});
 					return;
 				}
-
-				// Stock path
-				const [profile, quote, historical] = await Promise.all([
+				const [profile, quote] = await Promise.all([
 					apiGet<any>(`/api/market/stock/profile?symbol=${upperSymbol}`).catch(() => null),
 					apiGet<any>(`/api/market/stock/quote?symbol=${upperSymbol}`).catch(() => null),
-					apiGet<any>(
-						`/api/market/stock/historical?symbol=${upperSymbol}&timeframe=${timeframeToStockParam[timeframe]}`
-					).catch(() => null),
 				]);
-
-				const candles: Candle[] = historical?.data || [];
-
+				if (cancelled) return;
 				const price = quote?.price ?? profile?.price ?? 0;
 				const changePercent = quote?.changePercent ?? 0;
-				const chartData =
-					candles.length > 0
-						? mapHistoricalToSeries(candles)
-						: [];
-
-				const selected = {
-					type: "stock" as const,
+				setAsset({
+					type: "stock",
 					symbol: profile?.symbol || upperSymbol,
 					name: profile?.name || profile?.companyName || upperSymbol,
 					sector: profile?.sector || "Equity",
@@ -193,15 +184,14 @@ export default function StockDetailsPage() {
 					week52High: undefined,
 					week52Low: undefined,
 					beta: undefined,
-					chartData,
+					chartData: [],
 					ceo: profile?.ceo,
 					founded: profile?.founded,
 					employees: profile?.employees,
 					headquarters: profile?.headquarters,
-				};
-
-				setAsset(selected);
-			} catch (error: any) {
+				});
+			} catch (error) {
+				if (cancelled) return;
 				console.error("Failed to load asset", error);
 				toast.error("Could not load live data.");
 				setAsset({
@@ -214,16 +204,51 @@ export default function StockDetailsPage() {
 					chartData: [],
 				});
 			} finally {
-				setLoading(false);
+				if (!cancelled) setLoading(false);
 			}
-		};
+		})();
+		return () => { cancelled = true; };
+	}, [upperSymbol]);
 
-		void loadAsset();
-	}, [upperSymbol, timeframe]);
+	// 2) Chart history per timeframe: cached per symbol+timeframe, stale responses ignored
+	const historyCache = useRef(new Map<string, { value: number; time?: number }[]>());
+	const [history, setHistory] = useState<{ value: number; time?: number }[]>([]);
+	const [chartLoading, setChartLoading] = useState(false);
+	const assetType = asset?.symbol === upperSymbol ? asset.type : undefined;
+	useEffect(() => {
+		if (!upperSymbol || !assetType) return;
+		const key = `${assetType}:${upperSymbol}:${timeframe}`;
+		const hit = historyCache.current.get(key);
+		if (hit) {
+			setHistory(hit);
+			setChartLoading(false);
+			return;
+		}
+		let cancelled = false;
+		setChartLoading(true);
+		(async () => {
+			let series: { value: number; time?: number }[] = [];
+			if (assetType === "crypto") {
+				const { endpoint, limit } = timeframeToCryptoEndpoint[timeframe];
+				const hist = await apiGet<any>(`/api/market/crypto/historical?endpoint=${endpoint}&symbol=${upperSymbol}&currency=USD&limit=${limit}`).catch(() => null);
+				series = (hist?.Data?.Data && mapHistoricalToSeries(hist.Data.Data)) || [];
+			} else {
+				const hist = await apiGet<any>(`/api/market/stock/historical?symbol=${upperSymbol}&timeframe=${timeframeToStockParam[timeframe]}`).catch(() => null);
+				series = hist?.data?.length ? mapHistoricalToSeries(hist.data) : [];
+			}
+			if (cancelled) return;
+			if (series.length) historyCache.current.set(key, series);
+			setHistory(series);
+			setChartLoading(false);
+		})();
+		return () => { cancelled = true; };
+	}, [upperSymbol, assetType, timeframe]);
 
+	// Merge live crypto ticks into the chart at most every 3s (recharts re-render is the expensive part)
+	const throttledLiveSeries = useThrottledValue(assetType === "crypto" ? live.series : EMPTY_SERIES, 3000);
 	const displayChartData = useMemo(
-		() => (asset ? mergeLiveSeries(asset.chartData, asset.type === "crypto" ? live.series : [], timeframe === "1D" ? 30 : 1) : []),
-		[asset, live.series, timeframe],
+		() => mergeLiveSeries(history, throttledLiveSeries, timeframe === "1D" ? 30 : 1),
+		[history, throttledLiveSeries, timeframe],
 	);
 	const isCrypto = asset?.type === "crypto";
 	const isPositive = (asset?.changePercent ?? 0) >= 0;
@@ -350,7 +375,7 @@ export default function StockDetailsPage() {
 							</div>
 						</div>
 						{/* Timeframe Selector */}
-						<div className="flex gap-2">
+						<div className="flex flex-wrap gap-2">
 							{(["1D", "1W", "1M", "1Y"] as const).map((tf) => (
 								<Button
 									key={tf}
@@ -365,14 +390,21 @@ export default function StockDetailsPage() {
 					</div>
 
 					{/* Large Chart with Gradient */}
-					<PriceAreaChart
+					<div className="relative">
+						<MemoPriceAreaChart
 						symbol={asset.symbol}
 						data={displayChartData}
 						isPositive={isPositive}
 						variant="full"
-						height={384}
+						height={typeof window !== "undefined" && window.innerWidth < 640 ? 260 : 384}
 						showGrid
 					/>
+						{chartLoading && (
+							<div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/60">
+								<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+							</div>
+						)}
+					</div>
 				</div>
 			</Card>
 

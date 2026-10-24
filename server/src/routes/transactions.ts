@@ -4,6 +4,18 @@ import { Transaction } from "../models/Transaction.js";
 import { User } from "../models/User.js";
 import { getMarketPrice } from "../services/marketData.js";
 import { getMinTradeAmount } from "../services/settings.js";
+import { Coin } from "../models/Market.js";
+import { defaultCoins } from "../config/catalogue.js";
+
+/** Effective coin config = catalogue default overlaid with the admin DB row (same merge as GET /api/coins). */
+async function coinConfig(symbol: string) {
+  const upper = symbol.toUpperCase().trim();
+  if (!upper) return undefined;
+  const base = defaultCoins.find((c) => c.symbol === upper) as Record<string, any> | undefined;
+  const row = await Coin.findOne({ symbol: upper }).lean().catch(() => null);
+  if (!base && !row) return undefined;
+  return { ...(base || {}), ...(row || {}), symbol: upper } as Record<string, any>;
+}
 
 const router = Router();
 
@@ -42,7 +54,15 @@ router.get("/all", async (req, res) => {
 router.post("/deposit", async (req, res) => {
   const userId = req.body.userId || req.user!._id;
   if (!canAccess(req.user, userId)) return res.status(403).json({ message: "Forbidden" });
-  const transaction = await Transaction.create({ ...req.body, userId, type: "deposit", status: "pending" });
+  const coin = await coinConfig(String(req.body.symbol || ""));
+  if (!coin || coin.deposit !== true) return res.status(400).json({ message: "Deposits are not available for this coin" });
+  const depositAddress = String(coin.address || "").trim();
+  if (!depositAddress) return res.status(400).json({ message: "Deposits for this coin are not available yet" });
+  const depositAmount = Number(req.body.amount);
+  if (!Number.isFinite(depositAmount) || depositAmount <= 0) return res.status(400).json({ message: "Enter a valid amount" });
+  if (Number(coin.minDeposit || 0) > 0 && depositAmount < Number(coin.minDeposit)) return res.status(400).json({ message: `Minimum deposit for ${coin.symbol} is $${coin.minDeposit}` });
+  // Network/address always come from the server config, never from the client
+  const transaction = await Transaction.create({ ...req.body, userId, symbol: coin.symbol, amount: depositAmount, network: coin.network, address: depositAddress, type: "deposit", status: "pending" });
   res.status(201).json({ deposit: transaction });
 });
 
@@ -55,7 +75,10 @@ router.post("/withdraw", async (req, res) => {
   const stable = user.assets.find((asset) => ["USDT", "USDC"].includes(asset.symbol));
   const balance = Number(stable?.spot || 0) + Number(stable?.funding || 0);
   if (!Number.isFinite(amount) || amount <= 0 || amount > balance) return res.status(400).json({ message: "Insufficient balance or invalid amount" });
-  const transaction = await Transaction.create({ ...req.body, userId, amount, type: "withdrawal", status: "pending" });
+  const wCoin = await coinConfig(String(req.body.symbol || req.body.currency || ""));
+  if (!wCoin || wCoin.withdraw !== true) return res.status(400).json({ message: "Withdrawals are not available for this coin" });
+  if (Number(wCoin.minWithdraw || 0) > 0 && amount < Number(wCoin.minWithdraw)) return res.status(400).json({ message: `Minimum withdrawal for ${wCoin.symbol} is $${wCoin.minWithdraw}` });
+  const transaction = await Transaction.create({ ...req.body, userId, amount, symbol: wCoin.symbol, type: "withdrawal", status: "pending" });
   res.status(201).json({ withdrawal: transaction });
 });
 

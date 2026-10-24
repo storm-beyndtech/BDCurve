@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, memo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,7 @@ import { cn } from "@/lib/utils";
 import { apiGet } from "@/lib/api";
 import { toast } from "sonner";
 import { AssetLogo } from "@/components/common/asset-logo";
-import { PriceAreaChart } from "@/components/charts/price-area-chart";
-import { buildFallbackSeries } from "@/lib/series";
-import { useLiveQuote } from "@/hooks/useLiveQuote";
+import { Sparkline } from "@/components/marketing/visuals/market-panel";
 
 interface Stock {
 	symbol: string;
@@ -20,10 +18,10 @@ interface Stock {
 	changePercent: number;
 	volume?: number;
 	marketCap?: number;
-	chartData: { value: number }[];
+	sparkline: number[];
 }
 
-function StockCard({
+const StockCard = memo(function StockCard({
 	stock,
 	onNavigate,
 	formatCompact,
@@ -32,12 +30,10 @@ function StockCard({
 	onNavigate: (path: string) => void;
 	formatCompact: (v?: number) => string;
 }) {
-	const live = useLiveQuote(stock.symbol, "stock");
-	const currentPrice = live.quote?.price ?? stock.currentPrice;
-	const changePercent = live.quote?.changePercent ?? stock.changePercent;
+	const currentPrice = stock.currentPrice;
+	const changePercent = stock.changePercent;
 	const hasPrice = currentPrice > 0;
 	const isPositive = changePercent >= 0;
-	const chartData = live.series?.length ? live.series : stock.chartData;
 
 	return (
 		<Card
@@ -75,14 +71,7 @@ function StockCard({
 
 			{/* Chart with Gradient */}
 			<div className="h-24 relative">
-				<PriceAreaChart
-					symbol={stock.symbol}
-					data={chartData}
-					isPositive={isPositive}
-					variant="compact"
-					height="100%"
-					showGrid={false}
-				/>
+				<Sparkline values={stock.sparkline} positive={isPositive} className="px-1" />
 			</div>
 
 			{/* Footer */}
@@ -122,7 +111,7 @@ function StockCard({
 			</div>
 		</Card>
 	);
-}
+});
 
 export default function StocksPage() {
 	const navigate = useNavigate();
@@ -133,8 +122,8 @@ export default function StocksPage() {
 
 	useEffect(() => {
 		fetchStocks();
-		// Refresh every 30 seconds
-		const interval = setInterval(fetchStocks, 30000);
+		// Server caches quotes ~90s; refresh every 60s (skip while tab hidden)
+		const interval = setInterval(() => { if (!document.hidden) fetchStocks(); }, 60000);
 		return () => clearInterval(interval);
 	}, []);
 
@@ -150,7 +139,7 @@ export default function StocksPage() {
 					changePercent: stock.changePercent ?? 0,
 					volume: stock.volume,
 					marketCap: stock.marketCap,
-					chartData: generateChartData(stock.symbol, stock.currentPrice || stock.price || 0, stock.changePercent ?? 0),
+					sparkline: Array.isArray(stock.sparkline) ? stock.sparkline : [],
 				}));
 
 			setStocks(stocksWithCharts);
@@ -162,27 +151,15 @@ export default function StocksPage() {
 		}
 	};
 
-	const generateChartData = (symbol: string, currentPrice: number, changePercent: number) => {
-		if (!currentPrice || currentPrice <= 0) {
-			return Array.from({ length: 40 }, () => ({ value: 0 }));
-		}
-		return buildFallbackSeries(currentPrice, changePercent, 70, {
-			minBand: 0.1,
-			spikeChance: 0.12,
-			spikeIntensity: 3,
-			seed: `stock-${symbol}`,
-		});
-	};
-
-	const formatCompact = (value?: number) => {
+	const formatCompact = useCallback((value?: number) => {
 		if (!value) return "N/A";
 		return value.toLocaleString("en-US", {
 			notation: "compact",
 			maximumFractionDigits: 2,
 		});
-	};
+	}, []);
 
-	const filteredAndSortedStocks = stocks
+	const filteredAndSortedStocks = useMemo(() => stocks
 		.filter(
 			(stock) =>
 				stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -196,7 +173,8 @@ export default function StocksPage() {
 				return (b.volume || 0) - (a.volume || 0);
 			}
 			return (b.marketCap || 0) - (a.marketCap || 0);
-		});
+		}), [stocks, searchQuery, sortBy]);
+	const handleNavigate = useCallback((path: string) => navigate(path), [navigate]);
 
 	if (loading) {
 		return (
@@ -214,7 +192,7 @@ export default function StocksPage() {
 			{/* Header */}
 			<div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 				<div>
-					<h1 className="text-3xl font-semibold tracking-tight">Stocks</h1>
+					<h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Stocks</h1>
 					<p className="text-sm text-muted-foreground">
 						Trade stocks with zero commissions
 					</p>
@@ -252,7 +230,7 @@ export default function StocksPage() {
 						key={stock.symbol}
 						stock={stock}
 						formatCompact={formatCompact}
-						onNavigate={(path) => navigate(path)}
+						onNavigate={handleNavigate}
 					/>
 				))}
 			</div>

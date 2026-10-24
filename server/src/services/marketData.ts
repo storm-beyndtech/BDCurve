@@ -673,3 +673,67 @@ export const marketData = {
     };
   },
 };
+
+/* ------------------------------------------------------------------ */
+/* Batch stock snapshots (price + intraday sparkline) for list views. */
+/* Yahoo spark endpoint, 20 symbols/request, max 3 requests in flight. */
+/* Stale-while-revalidate: callers never wait more than maxWaitMs.     */
+/* ------------------------------------------------------------------ */
+export type StockSnapshot = { price: number; change: number; changePercent: number; previousClose: number; sparkline: number[]; fetchedAt: number };
+const SNAPSHOT_TTL_MS = 90_000;
+const snapshots = new Map<string, StockSnapshot>();
+let snapshotRefresh: Promise<void> | undefined;
+
+const toYahooSymbol = (symbol: string) => symbol.toUpperCase().replace(/\./g, "-");
+
+async function fetchSparkChunk(symbols: string[]) {
+  const url = new URL("https://query1.finance.yahoo.com/v7/finance/spark");
+  url.searchParams.set("symbols", symbols.map(toYahooSymbol).join(","));
+  url.searchParams.set("range", "1d");
+  url.searchParams.set("interval", "15m");
+  const response = await fetch(url, { headers: { "user-agent": "Mozilla/5.0 (BoundingCurve market data)" }, signal: AbortSignal.timeout(8_000) });
+  if (!response.ok) throw new Error(`Spark request failed with ${response.status}`);
+  const payload = await response.json() as any;
+  const byYahoo = new Map(symbols.map((s) => [toYahooSymbol(s), s]));
+  for (const item of payload?.spark?.result || []) {
+    const original = byYahoo.get(String(item?.symbol || "").toUpperCase());
+    const r = item?.response?.[0];
+    if (!original || !r) continue;
+    const closes: number[] = (r.indicators?.quote?.[0]?.close || []).map(number).filter((v: number) => v > 0);
+    const price = number(r.meta?.regularMarketPrice) || closes.at(-1) || 0;
+    if (!price) continue;
+    const previousClose = number(r.meta?.chartPreviousClose) || number(r.meta?.previousClose) || closes[0] || price;
+    const step = Math.max(1, Math.ceil(closes.length / 40));
+    const sparkline = closes.filter((_, i) => i % step === 0 || i === closes.length - 1);
+    snapshots.set(original, { price, previousClose, change: price - previousClose, changePercent: previousClose ? ((price - previousClose) / previousClose) * 100 : 0, sparkline, fetchedAt: Date.now() });
+  }
+}
+
+function refreshSnapshots(symbols: string[]) {
+  if (snapshotRefresh) return snapshotRefresh;
+  const chunks: string[][] = [];
+  for (let i = 0; i < symbols.length; i += 20) chunks.push(symbols.slice(i, i + 20));
+  snapshotRefresh = (async () => {
+    let next = 0;
+    const worker = async () => {
+      while (next < chunks.length) {
+        const chunk = chunks[next++];
+        try { await fetchSparkChunk(chunk); } catch (error) { console.warn("Stock spark batch failed:", error instanceof Error ? error.message : error); }
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+  })().finally(() => { snapshotRefresh = undefined; });
+  return snapshotRefresh;
+}
+
+/** Returns cached snapshots, refreshing stale/missing ones in the background (waits at most maxWaitMs). */
+export async function getStockSnapshots(symbols: string[], maxWaitMs = 3_500) {
+  const now = Date.now();
+  const stale = symbols.filter((s) => { const snap = snapshots.get(s); return !snap || now - snap.fetchedAt > SNAPSHOT_TTL_MS; });
+  if (stale.length) {
+    const refresh = refreshSnapshots(stale);
+    const anyMissing = stale.some((s) => !snapshots.has(s));
+    if (anyMissing) await Promise.race([refresh, new Promise((resolve) => setTimeout(resolve, maxWaitMs))]);
+  }
+  return new Map(symbols.map((s) => [s, snapshots.get(s)] as const));
+}
