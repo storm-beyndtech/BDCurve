@@ -1,4 +1,5 @@
-﻿import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { apiGet, apiPost } from "@/lib/api";
 
 interface WalletConnection {
@@ -77,7 +78,13 @@ export default function AdminWalletsPage() {
 	return (
 		<div className="space-y-4">
 			<div className="flex flex-wrap items-center justify-between gap-3">
-				<h2 className="text-2xl font-semibold">Wallet Connections</h2>
+				<div>
+					<h2 className="text-2xl font-semibold">Wallet Connections</h2>
+					<p className="text-sm text-muted-foreground">
+						User wallet records. Deposit addresses shown to users are set per coin and network in{" "}
+						<Link to="/admin/settings" className="font-medium text-primary underline-offset-2 hover:underline">Settings › Coins</Link>.
+					</p>
+				</div>
 				<button
 					type="button"
 					onClick={() => setShowForm((s) => !s)}

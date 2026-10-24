@@ -49,15 +49,35 @@ coinsRouter.get("/", async (_req, res) => {
   }
   res.json([...catalogue.values()].map(toCoinResponse));
 });coinsRouter.post("/create/:symbol", authenticate, requireAdmin, async (req, res) => {
-  const symbol = String(req.params.symbol).toUpperCase();
-  const coin = await Coin.findOneAndUpdate({ symbol }, { ...req.body, symbol }, { upsert: true, new: true, runValidators: true });
+  const symbol = String(req.params.symbol).toUpperCase().trim();
+  const fields = coinFields(req.body, symbol);
+  if (!fields.name) return res.status(400).json({ message: "Coin name is required" });
+  const coin = await Coin.findOneAndUpdate({ symbol }, { $set: { ...fields, symbol } }, { upsert: true, new: true, runValidators: true });
   res.status(201).json(coin);
 });
+// Upsert so catalogue-default coins (which have no DB document yet) can be configured by admins.
 coinsRouter.put("/update/:symbol", authenticate, requireAdmin, async (req, res) => {
-  const coin = await Coin.findOneAndUpdate({ symbol: String(req.params.symbol).toUpperCase() }, req.body, { new: true, runValidators: true });
-  if (!coin) return res.status(404).json({ message: "Coin not found" });
+  const symbol = String(req.params.symbol).toUpperCase().trim();
+  const fields = coinFields(req.body, symbol);
+  if (!fields.name) return res.status(404).json({ message: "Coin not found" });
+  const coin = await Coin.findOneAndUpdate({ symbol }, { $set: { ...fields, symbol } }, { upsert: true, new: true, runValidators: true });
   res.json(coin);
 });
+
+/** Whitelist admin-editable coin config (drops live price fields sent back by the client). */
+function coinFields(body: Record<string, unknown>, symbol: string) {
+  const fallback = defaultCoins.find((c) => c.symbol === symbol) as Record<string, unknown> | undefined;
+  const out: Record<string, unknown> = {};
+  const str = (k: string) => { if (body[k] !== undefined) out[k] = String(body[k] ?? "").trim(); };
+  const num = (k: string) => { if (body[k] !== undefined && Number.isFinite(Number(body[k]))) out[k] = Math.max(0, Number(body[k])); };
+  const bool = (k: string) => { if (body[k] !== undefined) out[k] = body[k] === true || body[k] === "true"; };
+  ["name", "network", "address", "logo"].forEach(str);
+  ["minDeposit", "minWithdraw", "withdrawalFee"].forEach(num);
+  ["deposit", "withdraw"].forEach(bool);
+  if (!out.name) out.name = fallback?.name || "";
+  if (out.network === undefined && fallback?.network) out.network = fallback.network;
+  return out as { name: string } & Record<string, unknown>;
+}
 
 marketRouter.get("/settings", async (_req, res) => {
   res.json({ minTradeAmount: await getMinTradeAmount() });

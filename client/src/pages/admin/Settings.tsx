@@ -410,6 +410,21 @@ export default function AdminSettingsPage() {
 											</div>
 										</div>
 
+										{/* Network */}
+										<div className="space-y-2">
+											<label className="text-sm font-medium" htmlFor={`net-${coin.symbol}`}>Network</label>
+											<Input
+												id={`net-${coin.symbol}`}
+												value={coin.network || ""}
+												onChange={(e) =>
+													setCoins((prev) =>
+														prev.map((c) => (c.symbol === coin.symbol ? { ...c, network: e.target.value } : c))
+													)
+												}
+												placeholder="e.g. TRC20, ERC20, Bitcoin"
+											/>
+										</div>
+
 										{/* Wallet Address */}
 										<div className="space-y-2">
 											<div className="flex items-center justify-between">

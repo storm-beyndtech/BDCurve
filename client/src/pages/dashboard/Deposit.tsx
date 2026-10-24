@@ -61,7 +61,8 @@ export default function DepositPage() {
         console.log("[Deposit] Coins array:", coinsArray.length, "items");
 
         // Filter only coins with deposit enabled
-        const depositCoins = coinsArray.filter((c: CoinData) => c.deposit === true);
+        // Only offer coins that are enabled AND have an admin-configured address
+        const depositCoins = coinsArray.filter((c: CoinData) => c.deposit === true && String(c.address || "").trim().length > 0);
         console.log("[Deposit] Deposit-enabled coins:", depositCoins.length);
 
         setCoins(depositCoins);
@@ -282,8 +283,8 @@ export default function DepositPage() {
                 </div>
               ) : coins.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">No deposit options available at this time.</p>
-                  <p className="text-xs text-muted-foreground mt-1">Please contact support if you need assistance.</p>
+                  <p className="font-medium">Crypto deposits are not available yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">Deposit addresses haven&apos;t been configured. Please check back soon or contact support.</p>
                 </div>
               ) : (
                 <>
@@ -295,7 +296,7 @@ export default function DepositPage() {
                       className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
                     >
                       {coins.map((coin) => (
-                        <option key={coin._id} value={coin.symbol}>
+                        <option key={coin.symbol} value={coin.symbol}>
                           {coin.name} ({coin.symbol}) - {coin.network}
                         </option>
                       ))}
