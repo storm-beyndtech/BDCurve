@@ -48,6 +48,7 @@ coinsRouter.get("/", async (_req, res) => {
     const symbol = String(coin.symbol).toUpperCase();
     catalogue.set(symbol, { ...catalogue.get(symbol), ...coin, symbol });
   }
+  res.set("Cache-Control", "no-store"); // deposit wallets must reflect admin changes immediately
   // Deposit info comes ONLY from Admin > Wallets (DepositWallet). A coin is depositable iff it has an enabled wallet.
   await migrateLegacyCoinAddresses();
   const wallets = await enabledWalletsBySymbol();

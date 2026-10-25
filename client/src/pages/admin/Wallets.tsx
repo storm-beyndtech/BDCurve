@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import QRCode from "react-qr-code";
 import { toast } from "sonner";
 import { ChevronRight, Plus, Trash2, Wallet, X, Users } from "lucide-react";
@@ -24,6 +24,8 @@ interface UserWalletRecord {
 	connectionMethod?: string;
 	connectedAt?: string;
 	userId?: { email?: string; uid?: string } | null;
+	suggested?: { symbol: string; network: string } | null;
+	warning?: string | null;
 }
 
 type CoinOption = { symbol: string; name: string; network?: string };
@@ -44,6 +46,11 @@ export default function AdminWalletsPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [editing, setEditing] = useState<DepositWallet | "new" | null>(null);
+	const [prefill, setPrefill] = useState<Partial<FormState> | undefined>(undefined);
+	const openNew = (initial?: Partial<FormState>) => {
+		setPrefill(initial);
+		setEditing("new");
+	};
 
 	const load = useCallback(async () => {
 		setError("");
@@ -56,6 +63,7 @@ export default function AdminWalletsPage() {
 			setWallets(w.wallets || []);
 			setCoins((Array.isArray(c) ? c : []).map((x) => ({ symbol: x.symbol, name: x.name, network: x.network })));
 			setUserWallets(u.wallets || []);
+			if (!(w.wallets || []).length && (u.wallets || []).length) setShowUserWallets(true);
 		} catch (err: any) {
 			setError(err?.message || "Failed to load wallets");
 		} finally {
@@ -82,12 +90,19 @@ export default function AdminWalletsPage() {
 				</div>
 				<button
 					type="button"
-					onClick={() => setEditing("new")}
+					onClick={() => openNew()}
 					className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
 				>
 					<Plus className="h-4 w-4" /> Add deposit wallet
 				</button>
 			</div>
+
+			{wallets.length === 0 && (
+				<div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+					<p className="font-semibold text-amber-700 dark:text-amber-400">No deposit wallets yet. Add one so users can deposit.</p>
+					<p className="mt-1 text-muted-foreground">Until then the user Deposit page shows "Crypto deposits are not available yet".{userWallets.length ? " You have old wallet records below; use \"Convert to deposit wallet\" to reuse them." : ""}</p>
+				</div>
+			)}
 
 			{error && <p className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-600">{error}</p>}
 
@@ -100,7 +115,7 @@ export default function AdminWalletsPage() {
 					<Wallet className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
 					<p className="font-medium">No deposit wallets yet</p>
 					<p className="mt-1 text-sm text-muted-foreground">Users currently see "Crypto deposits are not available yet". Add your first wallet to enable deposits.</p>
-					<button type="button" onClick={() => setEditing("new")} className="mt-4 min-h-[44px] rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">
+					<button type="button" onClick={() => openNew()} className="mt-4 min-h-[44px] rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">
 						Add deposit wallet
 					</button>
 				</div>
@@ -141,12 +156,12 @@ export default function AdminWalletsPage() {
 					onClick={() => setShowUserWallets((s) => !s)}
 					className="flex min-h-[48px] w-full items-center justify-between gap-2 px-4 text-left text-sm font-medium"
 				>
-					<span className="flex items-center gap-2"><Users className="h-4 w-4" /> User wallet records ({userWallets.length})</span>
+					<span className="flex items-center gap-2"><Users className="h-4 w-4" /> Old wallet records, not used for deposits ({userWallets.length})</span>
 					<ChevronRight className={cn("h-4 w-4 transition-transform", showUserWallets && "rotate-90")} />
 				</button>
 				{showUserWallets && (
 					<div className="space-y-2 border-t border-border p-3">
-						<p className="text-xs text-muted-foreground">Wallets saved against individual users (e.g. payout addresses). They are not shown on the Deposit page.</p>
+						<p className="text-xs text-muted-foreground">Records created with the previous "Add Wallet" form. They are NOT shown on the Deposit page. Convert one to make it a live deposit wallet.</p>
 						{userWallets.length === 0 ? (
 							<p className="text-sm text-muted-foreground">None.</p>
 						) : (
@@ -157,6 +172,14 @@ export default function AdminWalletsPage() {
 										{u.userId?.email || "Not linked to a user"} · {u.network || "network n/a"}
 										{u.connectedAt ? ` · ${new Date(u.connectedAt).toLocaleDateString()}` : ""}
 									</p>
+									{u.warning && <p className="mt-1 text-xs text-amber-600">⚠ {u.warning}</p>}
+									<button
+										type="button"
+										onClick={() => openNew({ symbol: u.suggested?.symbol || "", network: u.suggested?.network || u.network || "", address: u.walletAddress || "", label: "Converted from old record" })}
+										className="mt-2 min-h-[44px] w-full rounded-lg border border-primary/40 px-3 text-sm font-medium text-primary hover:bg-primary/5 sm:w-auto"
+									>
+										Convert to deposit wallet
+									</button>
 								</div>
 							))
 						)}
@@ -167,6 +190,7 @@ export default function AdminWalletsPage() {
 			{editing && (
 				<WalletSheet
 					wallet={editing === "new" ? null : editing}
+					initial={editing === "new" ? prefill : undefined}
 					coins={coins}
 					onClose={() => setEditing(null)}
 					onSaved={async () => {
@@ -181,11 +205,13 @@ export default function AdminWalletsPage() {
 
 function WalletSheet({
 	wallet,
+	initial,
 	coins,
 	onClose,
 	onSaved,
 }: {
 	wallet: DepositWallet | null;
+	initial?: Partial<FormState>;
 	coins: CoinOption[];
 	onClose: () => void;
 	onSaved: () => Promise<void>;
@@ -193,7 +219,7 @@ function WalletSheet({
 	const [form, setForm] = useState<FormState>(() =>
 		wallet
 			? { symbol: wallet.symbol, network: wallet.network, address: wallet.address, label: wallet.label || "", memo: wallet.memo || "", minDeposit: String(wallet.minDeposit ?? 0), enabled: wallet.enabled }
-			: emptyForm,
+			: { ...emptyForm, ...(initial || {}) },
 	);
 	const [saving, setSaving] = useState(false);
 	const [err, setErr] = useState("");

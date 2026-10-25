@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authenticate, requireAdmin } from "../middleware/auth.js";
 import { AuditLog, EmailLog, Wallet } from "../models/Operations.js";
 import { DepositWallet } from "../models/DepositWallet.js";
-import { isKnownCoin, migrateLegacyCoinAddresses, parseDepositWallet } from "../services/depositWallets.js";
+import { inferLegacyWallet, isKnownCoin, migrateLegacyCoinAddresses, parseDepositWallet } from "../services/depositWallets.js";
 import { User } from "../models/User.js";
 import { Transaction } from "../models/Transaction.js";
 import { sendMail } from "../services/mailer.js";
@@ -16,7 +16,8 @@ export const withdrawalsRouter = Router();
 walletRouter.use(authenticate);
 const serializeWallet = (w: any) => {
   const o = typeof w.toObject === "function" ? w.toObject() : w;
-  return { ...o, walletAddress: o.address, connectionMethod: o.provider || "manual", connectedAt: o.createdAt };
+  const inferred = inferLegacyWallet(o);
+  return { ...o, walletAddress: o.address, connectionMethod: o.provider || "manual", connectedAt: o.createdAt, suggested: inferred.ok ? { symbol: inferred.symbol, network: inferred.network } : null, warning: inferred.ok ? null : inferred.reason };
 };
 /* ---- Platform deposit wallets (admin CRUD). These feed /api/coins and the user Deposit page. ---- */
 walletRouter.get("/deposit", requireAdmin, async (_req, res) => {
