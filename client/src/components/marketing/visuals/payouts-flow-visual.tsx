@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import { motion } from "framer-motion";
 
 export function PayoutsFlowVisual() {
@@ -213,7 +213,7 @@ export function PayoutsFlowVisual() {
 			))}
 
 			{/* Floating currency symbols */}
-			{["$", "â‚¬", "Â£", "Â¥"].map((symbol, i) => {
+			{["$", "€", "£", "¥"].map((symbol, i) => {
 				const xOffset = 20 + ((i * 47) % 60);
 				const yOffset = 15 + ((i * 31) % 70);
 				const duration = 4 + ((i * 13) % 20) / 10;

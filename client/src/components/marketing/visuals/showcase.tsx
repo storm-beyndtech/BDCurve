@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Visual Components Showcase
  * Demonstrates all marketing visual components
  */
@@ -97,9 +97,9 @@ export function VisualsShowcase() {
                 Green-based ambient glows for marketing pages
               </p>
               <ul className="text-xs text-muted-foreground space-y-1">
-                <li>â€¢ Smooth floating animations</li>
-                <li>â€¢ Multiple movement patterns</li>
-                <li>â€¢ Configurable blur intensity</li>
+                <li>• Smooth floating animations</li>
+                <li>• Multiple movement patterns</li>
+                <li>• Configurable blur intensity</li>
               </ul>
             </CardContent>
           </Card>
@@ -114,9 +114,9 @@ export function VisualsShowcase() {
                 Purple-based ambient glows for dashboard
               </p>
               <ul className="text-xs text-muted-foreground space-y-1">
-                <li>â€¢ Independent timing per orb</li>
-                <li>â€¢ Low GPU usage</li>
-                <li>â€¢ Auto light/dark mode</li>
+                <li>• Independent timing per orb</li>
+                <li>• Low GPU usage</li>
+                <li>• Auto light/dark mode</li>
               </ul>
             </CardContent>
           </Card>
@@ -146,9 +146,9 @@ export function VisualsShowcase() {
                 Perfect for hero sections and compact spaces
               </p>
               <ul className="text-xs text-muted-foreground space-y-1">
-                <li>â€¢ 3 orbital rings</li>
-                <li>â€¢ Bidirectional rotation</li>
-                <li>â€¢ SVG-based scalability</li>
+                <li>• 3 orbital rings</li>
+                <li>• Bidirectional rotation</li>
+                <li>• SVG-based scalability</li>
               </ul>
             </CardContent>
           </Card>
@@ -163,9 +163,9 @@ export function VisualsShowcase() {
                 Expansive rings for full-page backgrounds
               </p>
               <ul className="text-xs text-muted-foreground space-y-1">
-                <li>â€¢ 4+ orbital rings</li>
-                <li>â€¢ Parallax scroll effect</li>
-                <li>â€¢ Subtle depth layering</li>
+                <li>• 4+ orbital rings</li>
+                <li>• Parallax scroll effect</li>
+                <li>• Subtle depth layering</li>
               </ul>
             </CardContent>
           </Card>

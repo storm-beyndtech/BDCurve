@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -118,7 +118,7 @@ export function MarqueeReview({
               {(role || company) && (
                 <p className="text-xs text-muted-foreground truncate">
                   {role}
-                  {role && company && " â€¢ "}
+                  {role && company && " • "}
                   {company}
                 </p>
               )}
