@@ -2,7 +2,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
 	PortfolioSummary,
-	AssetList,
 	RecentActivity,
 	QuickActions,
 	type PortfolioMetrics,
@@ -27,124 +26,11 @@ import { AssetLogo } from "@/components/common/asset-logo";
 import { cn } from "@/lib/utils";
 import { PriceAreaChart } from "@/components/charts/price-area-chart";
 import { toast } from "sonner";
-
-const toNumber = (val: any, fallback = 0) => {
-	const n = Number(val);
-	// Protect against NaN, Infinity, and unrealistic values
-	if (!Number.isFinite(n)) return fallback;
-	// Prevent unrealistic prices (e.g., > $10M for crypto/stocks)
-	if (Math.abs(n) > 10_000_000) return fallback;
-	return n;
-};
+import { HoldingsPanel } from "@/components/portfolio/holdings-panel";
+import { fetchPortfolio, type Portfolio } from "@/lib/portfolio";
 
 const isUsdPeggedAsset = (symbol: string) => ["USDT", "USDC", "USD"].includes(symbol?.toUpperCase());
 
-const buildPortfolio = (userAssets: any[], stocks: any, cryptos: any) => {
-	console.log("=== BUILDING PORTFOLIO ===");
-	console.log("User assets count:", userAssets?.length || 0);
-	console.log("User assets:", JSON.stringify(userAssets, null, 2));
-
-	let totalValue = 0;
-	const assetList: Asset[] = [];
-
-	// Maximum realistic values for validation
-	const MAX_QUANTITY = 1_000_000; // Max quantity per asset (1 million units)
-	const MAX_ASSET_VALUE = 10_000_000; // Max value per asset ($10M)
-	const MAX_PORTFOLIO_VALUE = 100_000_000; // Max total portfolio ($100M)
-
-	for (const asset of userAssets) {
-		const rawQuantity = (asset.spot || 0) + (asset.funding || 0);
-
-		// Validate quantity is realistic
-		const quantity = toNumber(rawQuantity, 0);
-		if (quantity <= 0) {
-			console.log(`[${asset.symbol}] Skipped - quantity is 0`);
-			continue;
-		}
-
-		if (quantity > MAX_QUANTITY) {
-			console.error(`[${asset.symbol}] INVALID QUANTITY DETECTED: ${quantity} exceeds ${MAX_QUANTITY}. Skipping asset.`);
-			continue;
-		}
-
-		console.log(
-			`[${asset.symbol}] spot: ${asset.spot}, funding: ${asset.funding || 0}, quantity: ${quantity}`,
-		);
-
-		let currentPrice = 0;
-		let changePercent = 0;
-		let name = asset.name || asset.symbol;
-
-		if (isUsdPeggedAsset(asset.symbol)) {
-			currentPrice = 1;
-			changePercent = 0;
-		} else {
-			const stockList = Array.isArray(stocks) ? stocks : stocks?.stocks || [];
-			const stock = stockList.find((s: any) => s.symbol === asset.symbol);
-			if (stock) {
-				currentPrice = toNumber(stock.currentPrice, 0);
-				changePercent = toNumber(stock.changePercent, 0);
-				name = stock.companyName || name;
-			} else {
-				const cryptoList = Array.isArray(cryptos) ? cryptos : cryptos?.coins || [];
-				const coin = cryptoList.find((c: any) => c.symbol === asset.symbol);
-				if (coin) {
-					currentPrice = toNumber(coin.price, 0);
-					changePercent = toNumber(coin.change24h, 0);
-					name = coin.name || name;
-				}
-			}
-		}
-
-		if (!currentPrice || currentPrice <= 0) {
-			console.warn(`[${asset.symbol}] No live price available, skipping valuation.`);
-			currentPrice = 0;
-			changePercent = 0;
-		}
-
-		const rawAssetValue = quantity * currentPrice;
-
-		// Validate asset value is realistic
-		if (rawAssetValue > MAX_ASSET_VALUE) {
-			console.error(
-				`[${asset.symbol}] INVALID ASSET VALUE: ${quantity} × ${currentPrice} = $${rawAssetValue.toFixed(2)} exceeds $${MAX_ASSET_VALUE}. Skipping asset.`
-			);
-			continue;
-		}
-
-		const assetValue = rawAssetValue;
-		console.log(
-			`[${asset.symbol}] Final calculation: ${quantity} × ${currentPrice} = $${assetValue.toFixed(2)}`,
-		);
-
-		// Validate total portfolio value doesn't exceed realistic limit
-		if (totalValue + assetValue > MAX_PORTFOLIO_VALUE) {
-			console.error(
-				`[${asset.symbol}] Adding this asset would exceed max portfolio value of $${MAX_PORTFOLIO_VALUE}. Current: $${totalValue.toFixed(2)}, Asset: $${assetValue.toFixed(2)}. Skipping.`
-			);
-			continue;
-		}
-
-		totalValue += assetValue;
-
-		assetList.push({
-			symbol: asset.symbol,
-			name,
-			quantity,
-			currentPrice,
-			totalValue: assetValue,
-			changePercent,
-			chartData: generateChartData(currentPrice, changePercent),
-		});
-	}
-
-	console.log("=== PORTFOLIO TOTAL ===");
-	console.log(`Total Portfolio Value: $${totalValue.toFixed(2)}`);
-	console.log(`Assets in portfolio: ${assetList.length}`);
-	console.log("Asset list:", assetList.map((a) => `${a.symbol}: $${a.totalValue.toFixed(2)}`).join(", "));
-
-	return { totalValue, assetList };
-};
 
 const generateChartData = (currentPrice: number, changePercent: number) => {
 	if (!currentPrice || currentPrice === 0) {
@@ -186,6 +72,7 @@ export default function DashboardPage() {
 	});
 	const [isDataLoaded, setIsDataLoaded] = useState(false);
 	const [assets, setAssets] = useState<Asset[]>([]);
+	const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
 	const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
 	const [profitSummary, setProfitSummary] = useState<ProfitSummaryState>({
 		total: 0,
@@ -309,11 +196,12 @@ export default function DashboardPage() {
 			console.log("User ID:", user.id);
 
 			// Fetch all data in parallel where possible
-			const [userData, stocks, cryptos, transactions] = await Promise.all([
+			const [userData, stocks, cryptos, transactions, pf] = await Promise.all([
 				apiGet<any>(`/api/auth/users/${user.id}`).catch(() => null),
 				apiGet<any>("/api/market/stocks").catch(() => []),
 				apiGet<any>("/api/coins").catch(() => []),
 				apiGet<any>(`/api/transaction/all?userId=${user.id}&limit=5&sort=-createdAt`).catch(() => []),
+				fetchPortfolio().catch(() => null),
 			]);
 
 			console.log("=== API RESPONSES ===");
@@ -332,61 +220,27 @@ export default function DashboardPage() {
 			}
 
 			// Process portfolio data - API returns { user: {...} }
-			const userAssets = userData?.user?.assets || userData?.assets || [];
-			console.log("User assets extracted:", userAssets.length);
 
 			// IMPORTANT: Validate that we have real price data before calculating portfolio
 			// Backend returns price: 0 when cache is loading, which causes incorrect calculations
 			const stockList = Array.isArray(stocks) ? stocks : stocks?.stocks || [];
 			const cryptoList = Array.isArray(cryptos) ? cryptos : cryptos?.coins || [];
 
-			// Check if we have valid prices (not all zeros or missing)
-			const hasValidStockPrices =
-				stockList.length === 0 || stockList.some((stock: any) => stock.currentPrice > 0);
-			const hasValidCryptoPrices =
-				cryptoList.length === 0 || cryptoList.some((coin: any) => coin.price > 0);
-
-			// If prices are still loading (all zeros), keep showing 0 until we get real data
-			if (!hasValidStockPrices || !hasValidCryptoPrices) {
-				console.warn("Market data still loading (no valid prices detected), showing 0 until ready");
-				if (initialLoad) {
-					setLoading(false);
-					setInitialLoad(false);
-				}
-				// Don't update portfolio metrics - keep showing 0
-				return;
-			}
-
-			const { totalValue, assetList } = buildPortfolio(userAssets, stocks, cryptos);
-			const assetListWithHistory = assetList.map((asset) =>
-				isUsdPeggedAsset(asset.symbol) ? { ...asset, chartData: [{ value: 1 }] } : asset
-			);
-
-			// Calculate buying power from all stablecoins (USDT, USDC, USD)
-			const buyingPower = userAssets
-				.filter((a: any) => ["USDT", "USDC", "USD"].includes(a.symbol))
-				.reduce((total: number, asset: any) => total + (asset.spot || 0) + (asset.funding || 0), 0);
-
-			// Calculate today's change based on the price movements of assets in portfolio
-			// IMPORTANT: Exclude stablecoins (USDT, USDC, USD) from change calculations as they don't fluctuate
-			let dayChange = 0;
-			let dayChangePercent = 0;
-
-			for (const asset of assetList) {
-				// Skip stablecoins - they don't have price changes
-				if (isUsdPeggedAsset(asset.symbol)) continue;
-
-				if (asset.changePercent !== 0 && asset.totalValue > 0) {
-					// Calculate what the value was at the start of the day
-					const startOfDayValue = asset.totalValue / (1 + asset.changePercent / 100);
-					const assetDayChange = asset.totalValue - startOfDayValue;
-					dayChange += assetDayChange;
-				}
-			}
-
-			if (totalValue > 0) {
-				dayChangePercent = (dayChange / (totalValue - dayChange)) * 100;
-			}
+			// Portfolio valuation is computed server-side (GET /api/portfolio): single source of truth.
+			if (pf) setPortfolio(pf);
+			const totalValue = pf?.totalValue ?? 0;
+			const buyingPower = pf?.buyingPower ?? 0;
+			const dayChange = pf?.dayChange ?? 0;
+			const dayChangePercent = pf?.dayChangePercent ?? 0;
+			const assetListWithHistory: Asset[] = (pf?.holdings || []).map((h) => ({
+				symbol: h.symbol,
+				name: h.name,
+				quantity: h.quantity,
+				currentPrice: h.price,
+				totalValue: h.value,
+				changePercent: h.change24h,
+				chartData: h.type === "cash" ? [{ value: 1 }] : generateChartData(h.price, h.change24h),
+			}));
 
 			// Process recent activity
 			const txnData = Array.isArray(transactions) ? transactions : transactions?.transactions || [];
@@ -444,6 +298,7 @@ export default function DashboardPage() {
 
 			// Process trending stocks
 			const topStocks = stockList
+				.map((s: any) => ({ ...s, currentPrice: s.currentPrice || s.price || 0 }))
 				.filter((s: any) => s.symbol && s.currentPrice > 0)
 				.sort((a: any, b: any) => Math.abs(b.changePercent || 0) - Math.abs(a.changePercent || 0))
 				.slice(0, 3);
@@ -489,10 +344,6 @@ export default function DashboardPage() {
 
 	const handleTrade = () => {
 		navigate("/dashboard/trade");
-	};
-
-	const handleViewAllAssets = () => {
-		navigate("/dashboard/markets");
 	};
 
 	const handleViewAllActivity = () => {
@@ -789,7 +640,7 @@ export default function DashboardPage() {
 			<div className="grid gap-6 lg:grid-cols-3">
 				{/* Asset List - Takes 2 columns */}
 				<div className="lg:col-span-2">
-					<AssetList assets={assets} onViewAll={handleViewAllAssets} />
+					<HoldingsPanel portfolio={portfolio} loading={!isDataLoaded} onChanged={() => void fetchDashboardData(false)} limit={6} />
 				</div>
 
 				{/* Recent Activity - Takes 1 column */}

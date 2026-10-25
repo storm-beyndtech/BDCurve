@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { Search, Filter, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
-import { apiGet } from "@/lib/api";
 import { AssetLogo } from "@/components/common/asset-logo";
 import { cn } from "@/lib/utils";
 import { PriceAreaChart } from "@/components/charts/price-area-chart";
 import { useNavigate } from "react-router-dom";
+import { HoldingsPanel } from "@/components/portfolio/holdings-panel";
+import { fetchPortfolio, type Portfolio } from "@/lib/portfolio";
 
 interface UserAsset {
 	symbol: string;
@@ -23,17 +24,6 @@ interface UserAsset {
 	type: "stock" | "crypto";
 	chartData: Array<{ value: number }>;
 }
-
-const toNumber = (val: any, fallback = 0) => {
-	const n = Number(val);
-	// Protect against NaN, Infinity, and unrealistic values
-	if (!Number.isFinite(n)) return fallback;
-	// Prevent unrealistic prices/quantities (e.g., > $10M)
-	if (Math.abs(n) > 10_000_000) return fallback;
-	return n;
-};
-
-const isUsdPeggedAsset = (symbol: string) => ["USDT", "USDC", "USD"].includes(symbol?.toUpperCase());
 
 const generateChartData = (currentPrice: number, changePercent: number) => {
 	if (!currentPrice || currentPrice === 0) {
@@ -62,12 +52,10 @@ export default function AssetsPage() {
 	const [hideBalances, setHideBalances] = useState(false);
 
 	// Calculate totals
-	const totalPortfolioValue = assets.reduce((sum, asset) => sum + asset.totalValue, 0);
-	const totalChange = assets.reduce((sum, asset) => {
-		const previousValue = asset.totalValue / (1 + asset.change24h / 100);
-		return sum + (asset.totalValue - previousValue);
-	}, 0);
-	const totalChangePercent = totalPortfolioValue > 0 ? (totalChange / (totalPortfolioValue - totalChange)) * 100 : 0;
+	const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+	const totalPortfolioValue = portfolio?.totalValue ?? 0;
+	const totalChange = portfolio?.dayChange ?? 0;
+	const totalChangePercent = portfolio?.dayChangePercent ?? 0;
 
 	useEffect(() => {
 		if (user?.id) {
@@ -84,154 +72,26 @@ export default function AssetsPage() {
 
 	const fetchAssets = async () => {
 		if (!user?.id) return;
-
 		try {
-			const [userData, stocks, cryptos] = await Promise.all([
-				apiGet<any>(`/api/auth/users/${user.id}`).catch(() => null),
-				apiGet<any>("/api/market/stocks").catch(() => []),
-				apiGet<any>("/api/coins").catch(() => []),
-			]);
-
-			// API returns { user: {...} }
-			const userAssets = userData?.user?.assets || userData?.assets || [];
-			const stockList = Array.isArray(stocks) ? stocks : stocks?.stocks || [];
-			const cryptoList = Array.isArray(cryptos) ? cryptos : cryptos?.coins || [];
-
-			// IMPORTANT: Validate that we have real price data before calculating
-			// Backend returns price: 0 when cache is loading, which causes incorrect calculations
-			const hasValidStockPrices = stockList.length === 0 || stockList.some((s: any) => s.currentPrice > 0);
-			const hasValidCryptoPrices = cryptoList.length === 0 || cryptoList.some((c: any) => c.price > 0);
-
-			// If prices are still loading (all zeros), skip update and keep showing 0
-			if (!hasValidStockPrices || !hasValidCryptoPrices) {
-				console.warn("Market data still loading (no valid prices detected), skipping update");
-				setLoading(false);
-				return;
-			}
-
-			const processedAssets: UserAsset[] = [];
-
-			// Maximum realistic values for validation
-			const MAX_QUANTITY = 1_000_000; // Max quantity per asset (1 million units)
-			const MAX_ASSET_VALUE = 10_000_000; // Max value per asset ($10M)
-
-			for (const asset of userAssets) {
-				const spot = toNumber(asset.spot, 0);
-				const funding = toNumber(asset.funding, 0);
-				const totalQuantity = spot + funding;
-
-				// Validate quantity is realistic
-				if (totalQuantity > MAX_QUANTITY) {
-					console.error(`[${asset.symbol}] INVALID QUANTITY: ${totalQuantity} exceeds ${MAX_QUANTITY}. Skipping.`);
-					continue;
-				}
-
-				// Skip if zero balance and hideZeroBalances is true
-				if (totalQuantity <= 0) {
-					// Still include it with zero value
-					processedAssets.push({
-						symbol: asset.symbol,
-						name: asset.name || asset.symbol,
-						spot,
-						funding,
-						totalQuantity,
-						currentPrice: 0,
-						totalValue: 0,
-						change24h: 0,
-						type: "crypto",
-						chartData: generateChartData(0, 0),
-					});
-					continue;
-				}
-
-				let currentPrice = 0;
-				let change24h = 0;
-				let name = asset.name || asset.symbol;
-				let type: "stock" | "crypto" = "crypto";
-
-				if (isUsdPeggedAsset(asset.symbol)) {
-					currentPrice = 1;
-					change24h = 0;
-				} else {
-					// Check if it's a stock
-					const stock = stockList.find((s: any) => s.symbol === asset.symbol);
-					if (stock) {
-						currentPrice = toNumber(stock.currentPrice, 0);
-						change24h = toNumber(stock.changePercent, 0);
-						name = stock.companyName || stock.name || name;
-						type = "stock";
-					} else {
-						// Check if it's a crypto
-						const coin = cryptoList.find((c: any) => c.symbol === asset.symbol);
-						if (coin) {
-							currentPrice = toNumber(coin.price, 0);
-							change24h = toNumber(coin.change24h, 0);
-							name = coin.name || name;
-							type = "crypto";
-						}
-					}
-				}
-
-				// Skip asset if no valid price found (prevents showing incorrect valuations)
-				if (!currentPrice || currentPrice <= 0) {
-					console.warn(`[${asset.symbol}] No valid price found. Skipping asset valuation.`);
-					processedAssets.push({
-						symbol: asset.symbol,
-						name,
-						spot,
-						funding,
-						totalQuantity,
-						currentPrice: 0,
-						totalValue: 0,
-						change24h: 0,
-						type,
-						chartData: generateChartData(0, 0),
-					});
-					continue;
-				}
-
-				const totalValue = totalQuantity * currentPrice;
-
-				// Validate asset value is realistic
-				if (totalValue > MAX_ASSET_VALUE) {
-					console.error(
-						`[${asset.symbol}] INVALID ASSET VALUE: ${totalQuantity} × ${currentPrice} = $${totalValue.toFixed(2)} exceeds $${MAX_ASSET_VALUE}. Capping to zero.`
-					);
-					processedAssets.push({
-						symbol: asset.symbol,
-						name,
-						spot,
-						funding,
-						totalQuantity,
-						currentPrice,
-						totalValue: 0,
-						change24h: 0,
-						type,
-						chartData: generateChartData(0, 0),
-					});
-					continue;
-				}
-
-				const history = isUsdPeggedAsset(asset.symbol) ? [{ value: 1 }] : [];
-				processedAssets.push({
-					symbol: asset.symbol,
-					name,
-					spot,
-					funding,
-					totalQuantity,
-					currentPrice,
-					totalValue,
-					change24h,
-					type,
-					chartData: history.length ? history : generateChartData(currentPrice, change24h),
-				});
-			}
-
-			// Sort by total value descending
-			processedAssets.sort((a, b) => b.totalValue - a.totalValue);
-			setAssets(processedAssets);
+			// Server-side valuation (GET /api/portfolio) is the single source of truth.
+			const pf = await fetchPortfolio();
+			setPortfolio(pf);
+			setAssets(
+				pf.holdings.map((h) => ({
+					symbol: h.symbol,
+					name: h.name,
+					spot: h.spot,
+					funding: h.funding,
+					totalQuantity: h.quantity,
+					currentPrice: h.price,
+					totalValue: h.value,
+					change24h: h.change24h,
+					type: h.type === "stock" ? "stock" : "crypto",
+					chartData: generateChartData(h.price, h.change24h),
+				})),
+			);
 		} catch (error) {
-			console.error("Failed to fetch assets:", error);
+			console.error("Failed to load portfolio", error);
 		} finally {
 			setLoading(false);
 		}
@@ -300,6 +160,8 @@ export default function AssetsPage() {
 					</Button>
 				</div>
 			</div>
+
+			<HoldingsPanel portfolio={portfolio} loading={loading} onChanged={() => void fetchAssets()} />
 
 			{/* Portfolio Summary */}
 			<div className="grid gap-4 md:grid-cols-3">
