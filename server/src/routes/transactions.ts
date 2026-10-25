@@ -7,6 +7,7 @@ import { getMinTradeAmount } from "../services/settings.js";
 import { Coin } from "../models/Market.js";
 import { defaultCoins } from "../config/catalogue.js";
 import { DepositWallet } from "../models/DepositWallet.js";
+import { notifyTransaction } from "../services/notifications.js";
 
 /** Effective coin config = catalogue default overlaid with the admin DB row (same merge as GET /api/coins). */
 async function coinConfig(symbol: string) {
@@ -70,6 +71,7 @@ router.post("/deposit", async (req, res) => {
   if (Number(wallet.minDeposit || 0) > 0 && depositAmount < Number(wallet.minDeposit)) return res.status(400).json({ message: `Minimum deposit for ${wallet.symbol} (${wallet.network}) is $${wallet.minDeposit}` });
   // Symbol/network/address always come from the server wallet, never from the client
   const transaction = await Transaction.create({ ...req.body, userId, symbol: wallet.symbol, amount: depositAmount, network: wallet.network, address: wallet.address, depositWalletId: wallet._id, type: "deposit", status: "pending" });
+  notifyTransaction(transaction, "submitted");
   res.status(201).json({ deposit: transaction });
 });
 
@@ -86,6 +88,7 @@ router.post("/withdraw", async (req, res) => {
   if (!wCoin || wCoin.withdraw !== true) return res.status(400).json({ message: "Withdrawals are not available for this coin" });
   if (Number(wCoin.minWithdraw || 0) > 0 && amount < Number(wCoin.minWithdraw)) return res.status(400).json({ message: `Minimum withdrawal for ${wCoin.symbol} is $${wCoin.minWithdraw}` });
   const transaction = await Transaction.create({ ...req.body, userId, amount, symbol: wCoin.symbol, type: "withdrawal", status: "pending" });
+  notifyTransaction(transaction, "submitted");
   res.status(201).json({ withdrawal: transaction });
 });
 
@@ -129,6 +132,7 @@ router.post("/trade", async (req, res) => {
     if (action === "buy" && (!quoteAsset || Number(quoteAsset.spot) < amount)) return res.status(400).json({ message: "Insufficient USDT balance" });
     if (action === "sell" && (!tradedAsset || Number(tradedAsset.spot) < quantity)) return res.status(400).json({ message: `Insufficient ${symbol} balance` });
     const trade = await Transaction.create({ ...base, status: "pending" });
+    notifyTransaction(trade, "submitted");
     return res.status(201).json({ success: true, trade });
   }
 
@@ -146,6 +150,7 @@ router.post("/trade", async (req, res) => {
   }
   await user.save();
   const trade = await Transaction.create({ ...base, status: "executed" });
+  notifyTransaction(trade, "executed");
   res.status(201).json({ success: true, trade });
 });
 
@@ -177,7 +182,9 @@ router.put("/deposit/approve/:id", requireAdmin, async (req, res) => {
   transaction.status = "approved";
   transaction.reviewedBy = req.user!._id;
   transaction.reviewedAt = new Date();
+  const wasApproved = transaction.isModified("status");
   await transaction.save();
+  if (wasApproved) notifyTransaction(transaction, "approved");
   res.json({ deposit: transaction });
 });
 
@@ -194,19 +201,29 @@ router.put("/withdrawal/approve/:id", requireAdmin, async (req, res) => {
   transaction.status = "approved";
   transaction.reviewedBy = req.user!._id;
   transaction.reviewedAt = new Date();
+  const wasApproved = transaction.isModified("status");
   await transaction.save();
+  if (wasApproved) notifyTransaction(transaction, "approved");
   res.json({ withdrawal: transaction });
 });
 
 for (const type of ["deposit", "withdrawal"] as const) {
   router.put(`/${type}/reject/:id`, requireAdmin, async (req, res) => {
-    const transaction = await Transaction.findOneAndUpdate({ _id: req.params.id, type }, { status: "rejected", description: req.body.reason, reviewedBy: req.user!._id, reviewedAt: new Date() }, { new: true });
+    const reason = String(req.body.reason || "").trim().slice(0, 500);
+    const before = await Transaction.findOne({ _id: req.params.id, type }).select("status").lean();
+    const transaction = await Transaction.findOneAndUpdate({ _id: req.params.id, type }, { status: "rejected", ...(reason ? { description: reason, metadata: { rejectionReason: reason } } : {}), reviewedBy: req.user!._id, reviewedAt: new Date() }, { new: true });
     if (!transaction) return res.status(404).json({ message: `${type} not found` });
+    if (before?.status !== "rejected") notifyTransaction(transaction, "rejected", reason || undefined);
     res.json({ [type]: transaction });
   });
   router.put(`/${type}/:id`, requireAdmin, async (req, res) => {
+    const before = await Transaction.findOne({ _id: req.params.id, type }).select("status").lean();
     const transaction = await Transaction.findOneAndUpdate({ _id: req.params.id, type }, req.body, { new: true, runValidators: true });
     if (!transaction) return res.status(404).json({ message: `${type} not found` });
+    if (before && before.status !== transaction.status) {
+      const ev = transaction.status === "rejected" ? "rejected" : ["approved", "completed"].includes(transaction.status) ? "approved" : transaction.status === "cancelled" ? "cancelled" : null;
+      if (ev) notifyTransaction(transaction, ev, ev === "rejected" ? String(req.body.reason || req.body.description || "").trim() || undefined : undefined);
+    }
     res.json({ [type]: transaction });
   });
 }

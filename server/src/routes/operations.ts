@@ -5,7 +5,9 @@ import { DepositWallet } from "../models/DepositWallet.js";
 import { inferLegacyWallet, isKnownCoin, migrateLegacyCoinAddresses, parseDepositWallet } from "../services/depositWallets.js";
 import { User } from "../models/User.js";
 import { Transaction } from "../models/Transaction.js";
-import { sendMail } from "../services/mailer.js";
+import { adminNotifyEmails, mailConfigured, mailProvider, sendMail } from "../services/mailer.js";
+import { layout, SUPPORT_PHONE } from "../services/emailTemplates.js";
+import { env } from "../config/env.js";
 import { getMinTradeAmount, setMinTradeAmount } from "../services/settings.js";
 
 export const walletRouter = Router();
@@ -110,17 +112,30 @@ adminRouter.put("/settings", async (req, res) => {
   await AuditLog.create({ actorId: req.user!._id, action: "settings.update", targetType: "Setting", targetId: "minTradeAmount", metadata: { minTradeAmount } });
   res.json({ minTradeAmount });
 });
+adminRouter.get("/email/status", async (_req, res) => {
+  const lastFailure = await EmailLog.findOne({ status: "failed" }).sort({ createdAt: -1 }).select("subject error createdAt").lean();
+  res.json({ configured: mailConfigured, provider: mailProvider, from: env.MAIL_FROM || env.SMTP_FROM, adminRecipients: adminNotifyEmails().length, lastFailure });
+});
+/** Sends a test email ONLY to the requesting admin (or configured admin notify addresses). */
+adminRouter.post("/email/test", async (req, res) => {
+  const to = req.user?.email || adminNotifyEmails()[0];
+  if (!to) return res.status(400).json({ message: "No admin email to send to" });
+  try {
+    const result = await sendMail(to, "Bounding Curve test email", layout({ title: "Email is working", intro: `This test was sent from the admin panel via ${mailProvider}. Transaction emails will be delivered the same way.`, footnote: `Support line shown to users: ${SUPPORT_PHONE}` }));
+    res.json({ ok: true, provider: mailProvider, to, messageId: result.messageId });
+  } catch (error) {
+    res.status(502).json({ ok: false, provider: mailProvider, message: error instanceof Error ? error.message : "Send failed" });
+  }
+});
 adminRouter.get("/email-logs", async (req, res) => res.json({ logs: await EmailLog.find().sort({ createdAt: -1 }).limit(Math.min(100, Number(req.query.limit) || 50)) }));
 adminRouter.post("/send-email", async (req, res) => {
   const { to, subject, html, message } = req.body;
-  await sendMail(to, subject, html || `<p>${String(message || "")}</p>`);
-  await EmailLog.create({ recipients: [to], subject, sentBy: req.user!._id });
+  await sendMail(to, subject, html || layout({ title: String(subject || "Message from Bounding Curve"), body: `<p style="font-size:15px;line-height:22px;color:#334155;white-space:pre-line">${String(message || "").replace(/[&<>]/g, (c: string) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]!))}</p>` }));
   res.json({ message: "Email sent" });
 });
 adminRouter.post("/send-bulk-email", async (req, res) => {
   const recipients = Array.isArray(req.body.recipients) ? req.body.recipients : [];
-  await sendMail(recipients, req.body.subject, req.body.html || `<p>${String(req.body.message || "")}</p>`);
-  await EmailLog.create({ recipients, subject: req.body.subject, sentBy: req.user!._id });
+  await sendMail(recipients, req.body.subject, req.body.html || layout({ title: String(req.body.subject || "Message from Bounding Curve"), body: `<p style="font-size:15px;line-height:22px;color:#334155;white-space:pre-line">${String(req.body.message || "").replace(/[&<>]/g, (c: string) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]!))}</p>` }));
   res.json({ message: "Bulk email sent", count: recipients.length });
 });
 

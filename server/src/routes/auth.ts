@@ -6,6 +6,7 @@ import { Otp } from "../models/Otp.js";
 import { authenticate, requireAdmin, signToken } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
 import { sendMail } from "../services/mailer.js";
+import { codeEmail } from "../services/emailTemplates.js";
 import { uploadImage } from "../services/cloudinary.js";
 import { NON_ADMIN_FILTER, isReservedAdminEmail } from "../config/admins.js";
 
@@ -18,7 +19,13 @@ async function issueCode(email: string, purpose: "registration" | "password-rese
   const codeHash = await bcrypt.hash(code, 10);
   await Otp.deleteMany({ email: email.toLowerCase(), purpose });
   await Otp.create({ email, codeHash, purpose, expiresAt: new Date(Date.now() + 10 * 60_000) });
-  await sendMail(email, `Your Bounding Curve ${purpose === "registration" ? "verification" : "password reset"} code`, `<p>Your code is <strong>${code}</strong>. It expires in 10 minutes.</p>`);
+  const mail = codeEmail(code, purpose);
+  try {
+    await sendMail(email, mail.subject, mail.html, mail.text);
+  } catch (error) {
+    // Surface a clear, non-500 error to the client; details are logged by the mailer.
+    throw Object.assign(new Error("We couldn't send the email right now. Please try again in a minute or contact support."), { status: 503 });
+  }
 }
 
 async function consumeCode(email: string, code: string, purpose: "registration" | "password-reset") {
