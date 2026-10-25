@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -122,7 +122,7 @@ export function JourneyProgressSection() {
 							Our journey
 						</h2>
 						<p className="text-base sm:text-lg md:text-right text-muted-foreground/90 max-w-full md:max-w-[480px] font-medium">
-							Building the future of financial infrastructure, one milestone at a timeâ€”from first line of
+							Building the future of financial infrastructure, one milestone at a time—from first line of
 							code to billions in annual transaction volume.
 						</p>
 					</div>

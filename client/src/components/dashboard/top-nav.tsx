@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { motion } from "framer-motion";
 import { Search, Bell, Menu, User } from "lucide-react";
 import { EnvironmentSwitcher, type Environment } from "./environment-switcher";
@@ -81,7 +81,7 @@ export function TopNav({ pageTitle, pageDescription }: TopNavProps) {
                 <Search className="h-4 w-4 text-muted-foreground"/>
                 <span className="text-sm text-muted-foreground">Search</span>
                 <kbd className="hidden lg:inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded border border-border bg-muted/30">
-                  âŒ˜K
+                  ⌘K
                 </kbd>
               </button>
             )}

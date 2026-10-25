@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,7 @@ const sampleRows: KPIDataRow[] = [
 ];
 
 function ChangeBadge({ change, status }: { change?: number; status?: KPIDataRow["status"] }) {
-	if (change === undefined || status === "neutral") return <span className="text-muted-foreground">â€”</span>;
+	if (change === undefined || status === "neutral") return <span className="text-muted-foreground">—</span>;
 
 	const isPositive = status === "up" || change >= 0;
 	const tint = isPositive

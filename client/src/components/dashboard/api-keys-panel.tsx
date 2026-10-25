@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Eye,
@@ -91,7 +91,7 @@ function APIKeyItem({
   const [copied, setCopied] = React.useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
 
-  const maskedKey = apiKey.key.slice(0, 8) + "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" + apiKey.key.slice(-4);
+  const maskedKey = apiKey.key.slice(0, 8) + "••••••••••••••••" + apiKey.key.slice(-4);
   const displayKey = revealed ? apiKey.key : maskedKey;
 
   const handleCopy = async () => {
@@ -320,7 +320,7 @@ export function APIKeyCompact({ apiKey }: { apiKey: APIKey }) {
   const [revealed, setRevealed] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
 
-  const maskedKey = apiKey.key.slice(0, 8) + "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" + apiKey.key.slice(-4);
+  const maskedKey = apiKey.key.slice(0, 8) + "••••••••••••••••" + apiKey.key.slice(-4);
   const displayKey = revealed ? apiKey.key : maskedKey;
 
   const handleCopy = async () => {
