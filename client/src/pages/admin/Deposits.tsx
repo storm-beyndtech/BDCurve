@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { TxStatus, TxStatusBadge } from "@/components/common/tx-status";
 import { Input } from "@/components/ui/input";
 import { CheckCircle, XCircle, Search, Filter, Copy, ChevronLeft, ChevronRight, Pencil, Save } from "lucide-react";
 
 interface Deposit {
+  description?: string;
   _id: string;
   user: {
     id: string;
@@ -233,18 +235,7 @@ export default function DepositsApprovalPage() {
     navigator.clipboard.writeText(text);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-        return <Badge variant="warning">Pending</Badge>;
-      case "approved":
-        return <Badge variant="success">Approved</Badge>;
-      case "rejected":
-        return <Badge variant="destructive">Rejected</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  const getStatusBadge = (status: string) => <TxStatusBadge type="deposit" status={status} audience="admin" />;
 
   // Pagination logic
   const totalPages = Math.ceil(filteredDeposits.length / itemsPerPage);
@@ -361,7 +352,7 @@ export default function DepositsApprovalPage() {
                         <p className="text-sm font-semibold">
                           {deposit.user?.name?.full || deposit.user?.name?.first || deposit.user?.email || "Unknown User"}
                         </p>
-                        {getStatusBadge(deposit.status)}
+                        <TxStatus type="deposit" status={deposit.status} reason={deposit.description} audience="admin" className="max-w-[220px]" />
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">{deposit.user?.email || "No email"}</p>
                     </div>

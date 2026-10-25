@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { EmailHealthCard } from "@/components/admin/email-health-card";
 import { Mail, Send, Users, User, CheckCircle, AlertCircle, Clock } from "lucide-react";
 
 const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : "")).replace(/\/$/, "");
@@ -232,9 +233,11 @@ export default function EmailManagementPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Email Management</h1>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Email Management</h1>
         <p className="text-sm text-muted-foreground mt-1">Send emails to users and view email history</p>
       </div>
+
+      <EmailHealthCard />
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">

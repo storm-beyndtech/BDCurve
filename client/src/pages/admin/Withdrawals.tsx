@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { TxStatus, TxStatusBadge } from "@/components/common/tx-status";
 import { Input } from "@/components/ui/input";
 import { CheckCircle, XCircle, Search, Filter, Copy, RefreshCw, AlertTriangle, ChevronLeft, ChevronRight, Pencil, Save } from "lucide-react";
 
 const API_URL_BASE = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : "")).replace(/\/$/, "");
 
 interface Withdrawal {
+  description?: string;
   _id: string;
   user: {
     id: string;
@@ -285,22 +287,7 @@ export default function WithdrawalsApprovalPage() {
     navigator.clipboard.writeText(text);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-        return <Badge variant="warning">Pending</Badge>;
-      case "approved":
-      case "completed":
-        return <Badge variant="success">Completed</Badge>;
-      case "rejected":
-      case "failed":
-        return <Badge variant="destructive">Failed</Badge>;
-      case "processing":
-        return <Badge variant="outline">Processing</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  const getStatusBadge = (status: string) => <TxStatusBadge type="withdrawal" status={status} audience="admin" />;
 
   // Pagination logic
   const totalPages = Math.ceil(filteredWithdrawals.length / itemsPerPage);
@@ -440,7 +427,7 @@ export default function WithdrawalsApprovalPage() {
                         <p className="text-sm font-semibold">
                           {withdrawal.user?.name?.full || withdrawal.user?.name?.first || withdrawal.user?.email || "Unknown User"}
                         </p>
-                        {getStatusBadge(withdrawal.status)}
+                        <TxStatus type="withdrawal" status={withdrawal.status} reason={withdrawal.description} audience="admin" className="max-w-[220px]" />
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">{withdrawal.user?.email || "No email"}</p>
                     </div>
