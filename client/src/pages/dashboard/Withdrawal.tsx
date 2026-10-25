@@ -260,7 +260,7 @@ export default function WithdrawalPage() {
                 <select
                   value={selectedCoinSymbol}
                   onChange={(e) => setSelectedCoinSymbol(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-border bg-card px-3 py-3 text-base sm:text-sm"
                 >
                   {coins.map((coin) => (
                     <option key={coin.symbol} value={coin.symbol}>
@@ -269,8 +269,10 @@ export default function WithdrawalPage() {
                   ))}
                 </select>
                 {selectedCoin && (
-                  <p className="text-xs text-muted-foreground">
-                    Network: <span className="font-medium">{selectedCoin.network}</span> · Min withdrawal: ${selectedCoin.minWithdraw} · Fee: {selectedCoin.withdrawalFee}%
+                  <p className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                    <span>Network: <span className="font-medium">{selectedCoin.network}</span></span>
+                    <span>Min withdrawal: ${selectedCoin.minWithdraw}</span>
+                    <span>Fee: {selectedCoin.withdrawalFee}%</span>
                   </p>
                 )}
               </div>
@@ -299,10 +301,9 @@ export default function WithdrawalPage() {
                   placeholder="Enter your wallet address..."
                   value={walletAddress}
                   onChange={(e) => setWalletAddress(e.target.value)}
-                  className="font-mono text-sm"
+                  className="font-mono text-base sm:text-sm"
                 />
-                <p className="text-xs text-red-600">
-                  ⚠ Double-check the address! Sending to wrong address = permanent loss of funds.
+                <p className="flex items-start gap-1.5 text-xs text-red-600"><span aria-hidden className="shrink-0">&#9888;</span><span className="min-w-0 flex-1 break-words">Double-check the address! Sending to wrong address = permanent loss of funds.</span>
                 </p>
               </div>
 
@@ -339,12 +340,12 @@ export default function WithdrawalPage() {
               )}
 
               {/* Warning Box */}
-              <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-4 space-y-2">
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 sm:p-4 space-y-2">
                 <div className="flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
-                  <div className="flex-1 space-y-1">
+                  <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+                  <div className="min-w-0 flex-1 space-y-1 break-words">
                     <p className="text-sm font-medium text-amber-600">Important Notice</p>
-                    <ul className="text-xs text-amber-600/80 space-y-1 list-disc list-inside">
+                    <ul className="text-xs text-amber-600/80 space-y-1 list-disc pl-4">
                       <li>Withdrawals are processed within 24 hours</li>
                       <li>Verify the network matches your wallet</li>
                       <li>Minimum withdrawal: ${selectedCoin?.minWithdraw || 10}</li>
@@ -381,7 +382,7 @@ export default function WithdrawalPage() {
                     <div className="mt-1">
                       <TrendingDown className="h-4 w-4 text-orange-600" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-medium">
                         {withdrawal.currency} {withdrawal.amount.toLocaleString()}
                       </p>

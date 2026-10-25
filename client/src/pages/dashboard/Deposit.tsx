@@ -332,7 +332,7 @@ export default function DepositPage() {
                         <Badge variant="outline">{selectedCoin.network}</Badge>
                       </div>
 
-                      <div className="flex flex-col md:flex-row items-center gap-6 p-4">
+                      <div className="flex flex-col md:flex-row items-center gap-4 sm:gap-6 p-3 sm:p-4">
                         {/* QR Code */}
                         <div className="shrink-0 flex flex-col items-center gap-2">
                           {selectedCoin.address ? (
@@ -340,7 +340,7 @@ export default function DepositPage() {
                               <QRCode
                                 key={selectedCoin.address}
                                 value={selectedCoin.address}
-                                size={140}
+                                size={128}
                                 style={{ display: "block" }}
                               />
                             </div>
@@ -353,13 +353,13 @@ export default function DepositPage() {
                         </div>
 
                         {/* Address + instructions */}
-                        <div className="flex-1 space-y-3 w-full">
+                        <div className="min-w-0 flex-1 space-y-3 w-full">
                           <div>
                             <Label className="text-xs text-muted-foreground mb-1.5 block">
                               Send {selectedCoin.symbol} ({selectedCoin.network}) to:
                             </Label>
                             <div className="flex items-center gap-2">
-                              <code className="flex-1 text-xs font-mono bg-muted px-3 py-2.5 rounded-lg break-all leading-relaxed">
+                              <code className="min-w-0 flex-1 text-xs font-mono bg-muted px-3 py-2.5 rounded-lg break-all leading-relaxed">
                                 {selectedCoin.address || "Address not configured"}
                               </code>
                               <Button
@@ -375,19 +375,17 @@ export default function DepositPage() {
                           </div>
 
                           <div className="space-y-1.5 text-xs text-muted-foreground">
-                            <p className="flex items-start gap-1.5">
-                              <span className="text-amber-500 mt-0.5">⚠</span>
-                              Send only <strong className="text-foreground">{selectedCoin.symbol}</strong> on the <strong className="text-foreground">{selectedCoin.network}</strong> network. Wrong network = permanent loss.
+                            <p className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 sm:p-2.5">
+                              <span aria-hidden className="shrink-0 text-amber-500 leading-5">&#9888;</span>
+                              <span className="min-w-0 flex-1 break-words leading-5">Send only <strong className="text-foreground">{selectedCoin.symbol}</strong> on the <strong className="text-foreground">{selectedCoin.network}</strong> network. Wrong network = permanent loss.</span>
                             </p>
                             {selectedCoin.memo && (
-                              <p className="flex items-start gap-1.5">
-                                Memo / tag (required): <strong className="text-foreground break-all">{selectedCoin.memo}</strong>
-                              </p>
+                              <p className="min-w-0 break-words leading-5">Memo / tag (required): <strong className="text-foreground break-all">{selectedCoin.memo}</strong></p>
                             )}
                             {selectedCoin.minDeposit > 0 && (
-                              <p className="flex items-start gap-1.5">
-                                <span className="text-blue-500 mt-0.5">ℹ</span>
-                                Minimum deposit: <strong className="text-foreground">${selectedCoin.minDeposit}</strong>
+                              <p className="flex items-start gap-2">
+                                <span aria-hidden className="shrink-0 text-blue-500 leading-5">&#8505;</span>
+                                <span className="min-w-0 flex-1 break-words leading-5">Minimum deposit: <strong className="text-foreground">${selectedCoin.minDeposit}</strong></span>
                               </p>
                             )}
                           </div>
