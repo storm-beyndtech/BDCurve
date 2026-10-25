@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import { motion } from "framer-motion";
 
 export function FXTreasuryVisual() {
@@ -328,7 +328,7 @@ export function FXTreasuryVisual() {
 			})}
 
 			{/* Floating currency symbols */}
-			{["$", "â‚¬", "Â£", "Â¥", "â‚£"].map((symbol, i) => {
+			{["$", "€", "£", "¥", "₣"].map((symbol, i) => {
 				const xOffset = 15 + ((i * 47) % 70);
 				const yOffset = 20 + ((i * 37) % 60);
 				const duration = 5 + ((i * 13) % 30) / 10;

@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +37,7 @@ export function PricingTable({ plans, showCustom = true, fees }: PricingTablePro
           Issuance fees
         </Badge>
         <p className="text-sm text-muted-foreground">
-          BTC-denominated pricing for card issuing and gateway railsâ€”matched to instantsglobal-p.com/pricing.
+          BTC-denominated pricing for card issuing and gateway rails—matched to instantsglobal-p.com/pricing.
         </p>
       </div>
 
@@ -122,7 +122,7 @@ export function PricingTable({ plans, showCustom = true, fees }: PricingTablePro
               </Badge>
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Payment options & fees</h2>
               <p className="text-muted-foreground max-w-3xl text-lg">
-                Itemized rates for every rail we supportâ€”transparent BTC pricing with no hidden surcharges.
+                Itemized rates for every rail we support—transparent BTC pricing with no hidden surcharges.
               </p>
             </div>
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/10 rounded-full blur-3xl -z-0"/>

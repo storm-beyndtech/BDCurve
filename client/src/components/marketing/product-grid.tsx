@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { productList } from "@/lib/products";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ProductGridProps {
@@ -63,14 +63,7 @@ export function ProductGrid({ filterByColor, showCTA = true, variant = "elevated
 							<ul className="space-y-2 flex-1">
 								{product.features.slice(0, 3).map((feature, index) => (
 									<li key={index} className="flex items-start gap-2 text-xs text-muted-foreground">
-										<span
-											className={cn(
-												"flex-shrink-0 font-bold leading-none mt-1",
-												product.color === "primary" ? "text-primary-500" : "text-primary-500",
-											)}
-										>
-											â—
-										</span>
+										<CheckCircle2 aria-hidden className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-primary-500" />
 										<span className="leading-relaxed">{feature}</span>
 									</li>
 								))}

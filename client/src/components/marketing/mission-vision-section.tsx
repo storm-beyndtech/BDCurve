@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Target, Eye, Rocket, Globe2, Zap, Users2 } from "lucide-react";
@@ -64,7 +64,7 @@ const visionItems: MissionVisionItem[] = [
 		icon: Eye,
 		title: "Transparent & Trust-First",
 		description:
-			"Financial infrastructure built on clarity. No hidden fees, no surprise chargesâ€”just transparent pricing and reliable service at scale.",
+			"Financial infrastructure built on clarity. No hidden fees, no surprise charges—just transparent pricing and reliable service at scale.",
 	},
 ];
 
@@ -167,7 +167,7 @@ export function MissionVisionSection() {
 						</h2>
 						<p className="text-lg text-muted-foreground leading-relaxed mb-8">
 							We envision a world where financial infrastructure is invisible, instant, and
-							universally accessibleâ€”enabling businesses to focus on growth, not payments.
+							universally accessible—enabling businesses to focus on growth, not payments.
 						</p>
 						<div className="flex flex-wrap gap-2">
 							{["Borderless", "Instant", "Transparent", "Scalable"].map((tag) => (
