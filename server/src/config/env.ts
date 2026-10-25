@@ -19,6 +19,12 @@ const schema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().default("Bounding Curve <support@boundingcurve.com>"),
+  // Preferred provider: Resend over HTTPS (no SMTP ports needed). Falls back to SMTP if unset.
+  RESEND_API_KEY: z.string().optional(),
+  MAIL_FROM: z.string().optional(),
+  ADMIN_EMAILS: z.string().optional(),
+  ADMIN_NOTIFY_EMAILS: z.string().optional(),
+  APP_URL: z.string().default("https://www.boundingcurve.com"),
   MARKET_DATA_API_KEY: z.string().optional(),
   CRYPTOCOMPARE_API_KEY: z.string().optional(),
   COINDESK_DATA_API_KEY: z.string().optional(),
