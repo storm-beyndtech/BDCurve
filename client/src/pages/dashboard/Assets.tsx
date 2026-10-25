@@ -104,7 +104,7 @@ export default function AssetsPage() {
 
 			// If prices are still loading (all zeros), skip update and keep showing 0
 			if (!hasValidStockPrices || !hasValidCryptoPrices) {
-				console.warn("⚠️ Market data still loading (no valid prices detected), skipping update");
+				console.warn("Market data still loading (no valid prices detected), skipping update");
 				setLoading(false);
 				return;
 			}

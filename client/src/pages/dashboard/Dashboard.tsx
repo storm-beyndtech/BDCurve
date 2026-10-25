@@ -348,7 +348,7 @@ export default function DashboardPage() {
 
 			// If prices are still loading (all zeros), keep showing 0 until we get real data
 			if (!hasValidStockPrices || !hasValidCryptoPrices) {
-				console.warn("⚠️ Market data still loading (no valid prices detected), showing 0 until ready");
+				console.warn("Market data still loading (no valid prices detected), showing 0 until ready");
 				if (initialLoad) {
 					setLoading(false);
 					setInitialLoad(false);

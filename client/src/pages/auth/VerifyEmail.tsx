@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { BackgroundGrid } from "@/components/marketing/visuals";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowRight, Mail, Shield } from "lucide-react";
+import { ArrowRight, Mail, Shield, ArrowLeft } from "lucide-react";
 import { authApi } from "@/lib/auth/api";
 import { useAuth } from "@/components/providers/auth-provider";
 
@@ -17,7 +17,7 @@ export default function VerifyEmailPage() {
 	const location = useLocation();
 	const { login } = useAuth();
 	const [code, setCode] = useState("");
-	const [error, setError] = useState<string | null>("✓ Verification code sent! Check your email (and spam folder).");
+	const [error, setError] = useState<string | null>("Verification code sent. Check your email (and spam folder).");
 	const [loading, setLoading] = useState(false);
 	const [resending, setResending] = useState(false);
 
@@ -65,7 +65,7 @@ export default function VerifyEmailPage() {
 		setError(null);
 		try {
 			await authApi.requestRegistrationCode(email);
-			setError("✓ A new verification code has been sent to your email. Check your spam folder if you don't see it.");
+			setError("A new verification code has been sent to your email. Check your spam folder if you don't see it.");
 		} catch (err) {
 			setError((err as Error).message || "Failed to resend code. Please try again.");
 		} finally {
@@ -152,7 +152,7 @@ export default function VerifyEmailPage() {
 
 							{/* Error Alert */}
 							{error && (
-								<Alert variant={error.includes("✓") || error.includes("sent") ? "success" : "destructive"}>
+								<Alert variant={error.includes("sent") ? "success" : "destructive"}>
 									<AlertDescription>{error}</AlertDescription>
 								</Alert>
 							)}
@@ -203,9 +203,9 @@ export default function VerifyEmailPage() {
 					<div className="text-center mt-6">
 						<button
 							onClick={() => navigate("/register")}
-							className="text-sm text-muted-foreground hover:text-primary-600 transition-colors"
+							className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary-600 transition-colors"
 						>
-							← Back to registration
+							<ArrowLeft className="h-4 w-4" /> Back to registration
 						</button>
 					</div>
 				</motion.div>

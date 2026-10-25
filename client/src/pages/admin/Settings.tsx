@@ -5,20 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import {
-	Coins,
-	TrendingUp,
-	DollarSign,
-	Settings2,
-	Plus,
-	Save,
-	Globe,
-	Network,
-	Wallet,
-	AlertCircle,
-	XCircle,
-	Info,
-} from "lucide-react";
+import { Coins, TrendingUp, DollarSign, Settings2, Plus, Save, Globe, Network, Wallet, AlertCircle, XCircle, Info, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type CoinConfig = {
@@ -405,7 +392,7 @@ export default function AdminSettingsPage() {
 													<span className="text-amber-600">No deposit wallet. Deposits off.</span>
 												)}
 											</span>
-											<Link to="/admin/wallets" className="font-medium text-primary hover:underline">Manage deposit wallets →</Link>
+											<Link to="/admin/wallets" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">Manage deposit wallets <ArrowRight className="h-4 w-4" /></Link>
 										</div>
 
 										{/* Limits Grid */}
