@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { TxStatusBadge, txStatusInfo } from "@/components/common/tx-status";
 import { useAuth } from "@/components/providers/auth-provider";
-import { Wallet, CheckCircle, Copy, Loader2 } from "lucide-react";
+import { Wallet, CheckCircle, Copy, Loader2, AlertTriangle, Info } from "lucide-react";
 import QRCode from "react-qr-code";
 import { toast } from "sonner";
 
@@ -232,11 +233,11 @@ export default function DepositPage() {
         <Card variant="glass" padding="lg" className="border-amber-500/20 bg-amber-500/5">
           <CardHeader className="p-0 space-y-2">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Badge variant="warning">Pending</Badge>
+              <TxStatusBadge type="deposit" status="pending" />
               You have {pendingDeposits.length} pending deposit{pendingDeposits.length > 1 ? "s" : ""}
             </CardTitle>
             <CardDescription>
-              You can cancel pending deposits to create new ones
+              {txStatusInfo("deposit", "pending").next} You can cancel a pending deposit to create a new one.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0 mt-4 space-y-3">
@@ -248,7 +249,7 @@ export default function DepositPage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">
-                      {deposit.walletData?.coinName || "USD"} {deposit.amount?.toLocaleString()}
+                      {deposit.symbol || deposit.currency || "USD"} ${Number(deposit.amount || 0).toLocaleString()}
                     </span>
                     {deposit.walletData?.network && (
                       <Badge variant="outline" className="text-xs">
@@ -376,7 +377,7 @@ export default function DepositPage() {
 
                           <div className="space-y-1.5 text-xs text-muted-foreground">
                             <p className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 sm:p-2.5">
-                              <span aria-hidden className="shrink-0 text-amber-500 leading-5">&#9888;</span>
+                              <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                               <span className="min-w-0 flex-1 break-words leading-5">Send only <strong className="text-foreground">{selectedCoin.symbol}</strong> on the <strong className="text-foreground">{selectedCoin.network}</strong> network. Wrong network = permanent loss.</span>
                             </p>
                             {selectedCoin.memo && (
@@ -384,7 +385,7 @@ export default function DepositPage() {
                             )}
                             {selectedCoin.minDeposit > 0 && (
                               <p className="flex items-start gap-2">
-                                <span aria-hidden className="shrink-0 text-blue-500 leading-5">&#8505;</span>
+                                <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                                 <span className="min-w-0 flex-1 break-words leading-5">Minimum deposit: <strong className="text-foreground">${selectedCoin.minDeposit}</strong></span>
                               </p>
                             )}

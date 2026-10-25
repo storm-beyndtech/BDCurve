@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import QRCode from "react-qr-code";
 import { toast } from "sonner";
-import { ChevronRight, Plus, Trash2, Wallet, X, Users } from "lucide-react";
+import { ChevronRight, Plus, Trash2, Wallet, X, Users, AlertTriangle } from "lucide-react";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -172,7 +172,7 @@ export default function AdminWalletsPage() {
 										{u.userId?.email || "Not linked to a user"} · {u.network || "network n/a"}
 										{u.connectedAt ? ` · ${new Date(u.connectedAt).toLocaleDateString()}` : ""}
 									</p>
-									{u.warning && <p className="mt-1 text-xs text-amber-600">⚠ {u.warning}</p>}
+									{u.warning && <p className="mt-1 flex items-start gap-1.5 text-xs text-amber-600"><AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span className="min-w-0 break-words">{u.warning}</span></p>}
 									<button
 										type="button"
 										onClick={() => openNew({ symbol: u.suggested?.symbol || "", network: u.suggested?.network || u.network || "", address: u.walletAddress || "", label: "Converted from old record" })}

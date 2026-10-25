@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TxStatusBadge, txStatusInfo } from "@/components/common/tx-status";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -311,12 +312,13 @@ export default function TransactionsPage() {
                   <li key={t.id || t._id} className="rounded-lg border border-border p-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className={`font-semibold text-sm ${isProfit ? "text-green-600" : ""}`}>{kindLabel[t.type] ?? t.type}</span>
-                      <Badge variant={t.status === "completed" ? "success" : t.status === "pending" ? "warning" : t.status === "failed" || t.status === "rejected" ? "destructive" : "outline"}>{t.status}</Badge>
+                      <TxStatusBadge type={t.type} status={t.status} />
                     </div>
                     <div className="mt-1 flex items-end justify-between gap-2">
                       <p className="min-w-0 truncate text-xs text-muted-foreground">{t.description || "No description"}</p>
                       <p className={`shrink-0 text-sm font-semibold ${isProfit && amount >= 0 ? "text-green-600" : ""}`}>{isProfit && amount >= 0 ? "+" : ""}{formatTransactionAmount(amount, t.currency || t.symbol)}</p>
                     </div>
+                    {txStatusInfo(t.type, t.status).next && <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{txStatusInfo(t.type, t.status).next}</p>}
                     <p className="mt-1 text-[11px] text-muted-foreground">{new Date(t.createdAt).toLocaleString()}</p>
                   </li>
                 );
@@ -349,19 +351,7 @@ export default function TransactionsPage() {
                       {formatTransactionAmount(amount, t.currency || t.symbol)}
                     </td>
                     <td className="py-3">
-                      <Badge
-                        variant={
-                          t.status === "completed"
-                            ? "success"
-                            : t.status === "pending"
-                            ? "warning"
-                            : t.status === "failed" || t.status === "rejected"
-                            ? "destructive"
-                            : "outline"
-                        }
-                      >
-                        {t.status}
-                      </Badge>
+                      <TxStatusBadge type={t.type} status={t.status} />
                     </td>
                     <td className="py-3 text-xs text-muted-foreground">
                       {new Date(t.createdAt).toLocaleString()}

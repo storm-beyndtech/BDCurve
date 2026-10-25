@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { TxStatus, TxStatusBadge } from "@/components/common/tx-status";
 import { useAuth } from "@/components/providers/auth-provider";
-import { AlertCircle, TrendingDown, Clock, Loader2 } from "lucide-react";
+import { AlertCircle, TrendingDown, Clock, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 interface CoinData {
@@ -176,20 +177,7 @@ export default function WithdrawalPage() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-        return <Badge variant="warning">Pending</Badge>;
-      case "processing":
-        return <Badge variant="outline">Processing</Badge>;
-      case "completed":
-        return <Badge variant="success">Completed</Badge>;
-      case "failed":
-        return <Badge variant="destructive">Failed</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  const getStatusBadge = (status: string) => <TxStatusBadge type="withdrawal" status={status} audience="user" />;
 
   if (loading) {
     return (
@@ -303,7 +291,7 @@ export default function WithdrawalPage() {
                   onChange={(e) => setWalletAddress(e.target.value)}
                   className="font-mono text-base sm:text-sm"
                 />
-                <p className="flex items-start gap-1.5 text-xs text-red-600"><span aria-hidden className="shrink-0">&#9888;</span><span className="min-w-0 flex-1 break-words">Double-check the address! Sending to wrong address = permanent loss of funds.</span>
+                <p className="flex items-start gap-1.5 text-xs text-red-600"><AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span className="min-w-0 flex-1 break-words">Double-check the address! Sending to wrong address = permanent loss of funds.</span>
                 </p>
               </div>
 
@@ -392,7 +380,7 @@ export default function WithdrawalPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    {getStatusBadge(withdrawal.status)}
+                    <TxStatus type="withdrawal" status={withdrawal.status} reason={withdrawal.description} className="max-w-[200px] text-right" />
                     {withdrawal.status === "processing" && (
                       <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                         <Clock className="h-3 w-3" />
