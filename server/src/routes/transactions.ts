@@ -6,6 +6,7 @@ import { getMarketPrice } from "../services/marketData.js";
 import { getMinTradeAmount } from "../services/settings.js";
 import { Coin } from "../models/Market.js";
 import { defaultCoins } from "../config/catalogue.js";
+import { DepositWallet } from "../models/DepositWallet.js";
 
 /** Effective coin config = catalogue default overlaid with the admin DB row (same merge as GET /api/coins). */
 async function coinConfig(symbol: string) {
@@ -54,15 +55,21 @@ router.get("/all", async (req, res) => {
 router.post("/deposit", async (req, res) => {
   const userId = req.body.userId || req.user!._id;
   if (!canAccess(req.user, userId)) return res.status(403).json({ message: "Forbidden" });
-  const coin = await coinConfig(String(req.body.symbol || ""));
-  if (!coin || coin.deposit !== true) return res.status(400).json({ message: "Deposits are not available for this coin" });
-  const depositAddress = String(coin.address || "").trim();
-  if (!depositAddress) return res.status(400).json({ message: "Deposits for this coin are not available yet" });
+  // Validate against an ENABLED platform deposit wallet (Admin > Wallets); by walletId, else symbol+network, else the only wallet for symbol.
+  const symbol = String(req.body.symbol || "").toUpperCase().trim();
+  const walletId = String(req.body.walletId || "");
+  let wallet = walletId && /^[a-f0-9]{24}$/i.test(walletId) ? await DepositWallet.findOne({ _id: walletId, enabled: true }) : null;
+  if (!wallet && symbol) {
+    const candidates = await DepositWallet.find({ symbol, enabled: true });
+    const network = String(req.body.network || "").trim();
+    wallet = candidates.find((w) => w.network === network) || (candidates.length === 1 ? candidates[0] : null);
+  }
+  if (!wallet) return res.status(400).json({ message: "Deposits are not available for this coin/network" });
   const depositAmount = Number(req.body.amount);
   if (!Number.isFinite(depositAmount) || depositAmount <= 0) return res.status(400).json({ message: "Enter a valid amount" });
-  if (Number(coin.minDeposit || 0) > 0 && depositAmount < Number(coin.minDeposit)) return res.status(400).json({ message: `Minimum deposit for ${coin.symbol} is $${coin.minDeposit}` });
-  // Network/address always come from the server config, never from the client
-  const transaction = await Transaction.create({ ...req.body, userId, symbol: coin.symbol, amount: depositAmount, network: coin.network, address: depositAddress, type: "deposit", status: "pending" });
+  if (Number(wallet.minDeposit || 0) > 0 && depositAmount < Number(wallet.minDeposit)) return res.status(400).json({ message: `Minimum deposit for ${wallet.symbol} (${wallet.network}) is $${wallet.minDeposit}` });
+  // Symbol/network/address always come from the server wallet, never from the client
+  const transaction = await Transaction.create({ ...req.body, userId, symbol: wallet.symbol, amount: depositAmount, network: wallet.network, address: wallet.address, depositWalletId: wallet._id, type: "deposit", status: "pending" });
   res.status(201).json({ deposit: transaction });
 });
 

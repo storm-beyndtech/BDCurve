@@ -6,6 +6,7 @@ import { getLatestBlock, rpcUrls, type RpcNetwork } from "../services/rpc.js";
 import { cryptoCompareApiKey, env } from "../config/env.js";
 import { defaultCoins, defaultStocks } from "../config/catalogue.js";
 import { getMinTradeAmount } from "../services/settings.js";
+import { enabledWalletsBySymbol, migrateLegacyCoinAddresses } from "../services/depositWallets.js";
 
 export const coinsRouter = Router();
 export const marketRouter = Router();
@@ -47,7 +48,21 @@ coinsRouter.get("/", async (_req, res) => {
     const symbol = String(coin.symbol).toUpperCase();
     catalogue.set(symbol, { ...catalogue.get(symbol), ...coin, symbol });
   }
-  res.json([...catalogue.values()].map(toCoinResponse));
+  // Deposit info comes ONLY from Admin > Wallets (DepositWallet). A coin is depositable iff it has an enabled wallet.
+  await migrateLegacyCoinAddresses();
+  const wallets = await enabledWalletsBySymbol();
+  res.json([...catalogue.values()].map((coin) => {
+    const list = wallets.get(String(coin.symbol).toUpperCase()) || [];
+    const primary = list[0];
+    return toCoinResponse({
+      ...coin,
+      deposit: list.length > 0,
+      depositWallets: list,
+      address: primary?.address || "",
+      network: primary?.network || coin.network || "",
+      minDeposit: primary ? primary.minDeposit : Number(coin.minDeposit || 0),
+    });
+  }));
 });coinsRouter.post("/create/:symbol", authenticate, requireAdmin, async (req, res) => {
   const symbol = String(req.params.symbol).toUpperCase().trim();
   const fields = coinFields(req.body, symbol);
@@ -71,9 +86,9 @@ function coinFields(body: Record<string, unknown>, symbol: string) {
   const str = (k: string) => { if (body[k] !== undefined) out[k] = String(body[k] ?? "").trim(); };
   const num = (k: string) => { if (body[k] !== undefined && Number.isFinite(Number(body[k]))) out[k] = Math.max(0, Number(body[k])); };
   const bool = (k: string) => { if (body[k] !== undefined) out[k] = body[k] === true || body[k] === "true"; };
-  ["name", "network", "address", "logo"].forEach(str);
+  ["name", "network", "logo"].forEach(str); // deposit address/network live in Admin > Wallets (DepositWallet)
   ["minDeposit", "minWithdraw", "withdrawalFee"].forEach(num);
-  ["deposit", "withdraw"].forEach(bool);
+  ["withdraw"].forEach(bool);
   if (!out.name) out.name = fallback?.name || "";
   if (out.network === undefined && fallback?.network) out.network = fallback.network;
   return out as { name: string } & Record<string, unknown>;

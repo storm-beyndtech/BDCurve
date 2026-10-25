@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { authenticate, requireAdmin } from "../middleware/auth.js";
 import { AuditLog, EmailLog, Wallet } from "../models/Operations.js";
+import { DepositWallet } from "../models/DepositWallet.js";
+import { isKnownCoin, migrateLegacyCoinAddresses, parseDepositWallet } from "../services/depositWallets.js";
 import { User } from "../models/User.js";
 import { Transaction } from "../models/Transaction.js";
 import { sendMail } from "../services/mailer.js";
@@ -16,6 +18,44 @@ const serializeWallet = (w: any) => {
   const o = typeof w.toObject === "function" ? w.toObject() : w;
   return { ...o, walletAddress: o.address, connectionMethod: o.provider || "manual", connectedAt: o.createdAt };
 };
+/* ---- Platform deposit wallets (admin CRUD). These feed /api/coins and the user Deposit page. ---- */
+walletRouter.get("/deposit", requireAdmin, async (_req, res) => {
+  await migrateLegacyCoinAddresses();
+  res.json({ wallets: await DepositWallet.find().sort({ symbol: 1, network: 1 }).lean() });
+});
+walletRouter.post("/deposit", requireAdmin, async (req, res) => {
+  const parsed = parseDepositWallet(req.body || {});
+  if (parsed.error) return res.status(400).json({ message: parsed.error });
+  const v = parsed.value as Record<string, any>;
+  if (!(await isKnownCoin(v.symbol))) return res.status(400).json({ message: `${v.symbol} is not a listed coin. Add it in Settings first.` });
+  if (await DepositWallet.exists({ symbol: v.symbol, network: v.network })) return res.status(409).json({ message: `A ${v.symbol} wallet on ${v.network} already exists. Edit it instead.` });
+  const wallet = await DepositWallet.create(v);
+  await AuditLog.create({ actorId: req.user!._id, action: "depositWallet.create", targetType: "DepositWallet", targetId: String(wallet._id), metadata: { symbol: v.symbol, network: v.network } });
+  res.status(201).json({ wallet });
+});
+walletRouter.put("/deposit/:id", requireAdmin, async (req, res) => {
+  const parsed = parseDepositWallet(req.body || {}, true);
+  if (parsed.error) return res.status(400).json({ message: parsed.error });
+  const v = parsed.value as Record<string, any>;
+  const existing = await DepositWallet.findById(req.params.id).catch(() => null);
+  if (!existing) return res.status(404).json({ message: "Wallet not found" });
+  const symbol = v.symbol ?? existing.symbol;
+  const network = v.network ?? existing.network;
+  if (v.symbol && !(await isKnownCoin(symbol))) return res.status(400).json({ message: `${symbol} is not a listed coin` });
+  if (await DepositWallet.exists({ symbol, network, _id: { $ne: existing._id } })) return res.status(409).json({ message: `A ${symbol} wallet on ${network} already exists` });
+  existing.set(v);
+  await existing.save();
+  await AuditLog.create({ actorId: req.user!._id, action: "depositWallet.update", targetType: "DepositWallet", targetId: String(existing._id), metadata: { symbol, network, fields: Object.keys(v) } });
+  res.json({ wallet: existing });
+});
+walletRouter.delete("/deposit/:id", requireAdmin, async (req, res) => {
+  const wallet = await DepositWallet.findByIdAndDelete(req.params.id).catch(() => null);
+  if (!wallet) return res.status(404).json({ message: "Wallet not found" });
+  await AuditLog.create({ actorId: req.user!._id, action: "depositWallet.delete", targetType: "DepositWallet", targetId: String(wallet._id), metadata: { symbol: wallet.symbol, network: wallet.network } });
+  res.json({ message: "Wallet deleted" });
+});
+
+/* ---- Legacy user-linked wallet records ---- */
 walletRouter.get("/all", requireAdmin, async (_req, res) => {
   const wallets = await Wallet.find().populate("userId", "email name uid").sort({ createdAt: -1 });
   res.json({ wallets: wallets.map(serializeWallet) });

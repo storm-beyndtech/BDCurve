@@ -21,6 +21,9 @@ interface CoinData {
   minDeposit: number;
   minWithdraw: number;
   withdrawalFee: number;
+  memo?: string;
+  key: string; // symbol:network (one entry per admin deposit wallet)
+  depositWallets?: { _id: string; network: string; address: string; memo?: string; minDeposit: number; label?: string }[];
 }
 
 export default function DepositPage() {
@@ -41,7 +44,7 @@ export default function DepositPage() {
   const [submittingCrypto, setSubmittingCrypto] = useState(false);
 
   // Get the selected coin object
-  const selectedCoin = coins.find(c => c.symbol === selectedCoinSymbol);
+  const selectedCoin = coins.find(c => c.key === selectedCoinSymbol);
 
   // Fetch available coins for deposit
   const fetchCoins = async () => {
@@ -62,13 +65,16 @@ export default function DepositPage() {
 
         // Filter only coins with deposit enabled
         // Only offer coins that are enabled AND have an admin-configured address
-        const depositCoins = coinsArray.filter((c: CoinData) => c.deposit === true && String(c.address || "").trim().length > 0);
+        // One option per enabled platform deposit wallet (managed in Admin > Wallets)
+        const depositCoins: CoinData[] = coinsArray.flatMap((c: CoinData) =>
+          (c.depositWallets || []).map((w) => ({ ...c, _id: w._id, network: w.network, address: w.address, memo: w.memo || "", minDeposit: Number(w.minDeposit || 0), key: `${c.symbol}:${w.network}` })),
+        );
         console.log("[Deposit] Deposit-enabled coins:", depositCoins.length);
 
         setCoins(depositCoins);
         // Set default selected coin to first available
         if (depositCoins.length > 0 && !selectedCoinSymbol) {
-          setSelectedCoinSymbol(depositCoins[0].symbol);
+          setSelectedCoinSymbol(depositCoins[0].key);
         }
       } else {
         console.error("[Deposit] API error:", response.status, response.statusText);
@@ -185,6 +191,7 @@ export default function DepositPage() {
         body: JSON.stringify({
           userId: user?.id,
           amount: parseFloat(cryptoAmount),
+          walletId: selectedCoin._id,
           symbol: selectedCoin.symbol,
           network: selectedCoin.network,
           address: selectedCoin.address,
@@ -293,10 +300,10 @@ export default function DepositPage() {
                     <select
                       value={selectedCoinSymbol}
                       onChange={(e) => setSelectedCoinSymbol(e.target.value)}
-                      className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-border bg-card px-3 py-3 text-base sm:text-sm"
                     >
                       {coins.map((coin) => (
-                        <option key={coin.symbol} value={coin.symbol}>
+                        <option key={coin.key} value={coin.key}>
                           {coin.name} ({coin.symbol}) - {coin.network}
                         </option>
                       ))}
@@ -312,14 +319,14 @@ export default function DepositPage() {
                       onChange={(e) => setCryptoAmount(e.target.value)}
                       min={selectedCoin?.minDeposit || 10}
                     />
-                    {selectedCoin?.minDeposit && (
-                      <p className="text-xs text-muted-foreground">Minimum deposit: ${selectedCoin.minDeposit}</p>
+                    {(selectedCoin?.minDeposit ?? 0) > 0 && (
+                      <p className="text-xs text-muted-foreground">Minimum deposit: ${selectedCoin?.minDeposit}</p>
                     )}
                   </div>
 
                   {/* Platform Wallet Address */}
                   {selectedCoin && (
-                    <div key={selectedCoin.symbol} className="rounded-lg border border-border bg-accent/5 overflow-hidden">
+                    <div key={selectedCoin.key} className="rounded-lg border border-border bg-accent/5 overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                         <span className="text-sm font-medium">Deposit Address</span>
                         <Badge variant="outline">{selectedCoin.network}</Badge>
@@ -358,7 +365,7 @@ export default function DepositPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="shrink-0"
+                                className="shrink-0 h-11 w-11"
                                 onClick={() => copyToClipboard(selectedCoin.address || "")}
                                 disabled={!selectedCoin.address}
                               >
@@ -372,7 +379,12 @@ export default function DepositPage() {
                               <span className="text-amber-500 mt-0.5">⚠</span>
                               Send only <strong className="text-foreground">{selectedCoin.symbol}</strong> on the <strong className="text-foreground">{selectedCoin.network}</strong> network. Wrong network = permanent loss.
                             </p>
-                            {selectedCoin.minDeposit && (
+                            {selectedCoin.memo && (
+                              <p className="flex items-start gap-1.5">
+                                Memo / tag (required): <strong className="text-foreground break-all">{selectedCoin.memo}</strong>
+                              </p>
+                            )}
+                            {selectedCoin.minDeposit > 0 && (
                               <p className="flex items-start gap-1.5">
                                 <span className="text-blue-500 mt-0.5">ℹ</span>
                                 Minimum deposit: <strong className="text-foreground">${selectedCoin.minDeposit}</strong>

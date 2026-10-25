@@ -1,185 +1,339 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
-import { apiGet, apiPost } from "@/lib/api";
+﻿import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import QRCode from "react-qr-code";
+import { toast } from "sonner";
+import { ChevronRight, Plus, Trash2, Wallet, X, Users } from "lucide-react";
+import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
-interface WalletConnection {
+interface DepositWallet {
 	_id: string;
-	walletAddress: string;
-	connectionMethod: string;
-	connectedAt: string;
-	network?: string;
-	status?: string;
-	userId?: {
-		_id: string;
-		email: string;
-		uid: string;
-	};
+	symbol: string;
+	network: string;
+	address: string;
+	label?: string;
+	memo?: string;
+	minDeposit: number;
+	enabled: boolean;
+	updatedAt?: string;
 }
 
-const emptyForm = { address: "", network: "", provider: "manual", status: "connected", userEmail: "" };
-const inputClass =
-	"w-full rounded-md border border-gray-700 bg-transparent px-3 py-2 text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-primary";
+interface UserWalletRecord {
+	_id: string;
+	walletAddress: string;
+	network?: string;
+	connectionMethod?: string;
+	connectedAt?: string;
+	userId?: { email?: string; uid?: string } | null;
+}
+
+type CoinOption = { symbol: string; name: string; network?: string };
+
+const emptyForm = { symbol: "", network: "", address: "", label: "", memo: "", minDeposit: "10", enabled: true };
+type FormState = typeof emptyForm;
+
+const field =
+	"w-full rounded-lg border border-border bg-background px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary";
+
+const short = (a: string) => (a.length > 18 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a);
 
 export default function AdminWalletsPage() {
-	const [wallets, setWallets] = useState<WalletConnection[]>([]);
+	const [wallets, setWallets] = useState<DepositWallet[]>([]);
+	const [coins, setCoins] = useState<CoinOption[]>([]);
+	const [userWallets, setUserWallets] = useState<UserWalletRecord[]>([]);
+	const [showUserWallets, setShowUserWallets] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
-	const [showForm, setShowForm] = useState(false);
-	const [form, setForm] = useState(emptyForm);
-	const [saving, setSaving] = useState(false);
-	const [formError, setFormError] = useState("");
+	const [editing, setEditing] = useState<DepositWallet | "new" | null>(null);
 
-	const fetchWallets = async () => {
+	const load = useCallback(async () => {
+		setError("");
 		try {
-			const response = await apiGet<{ wallets: WalletConnection[] }>("/api/wallet/all");
-			setWallets(response.wallets || []);
+			const [w, c, u] = await Promise.all([
+				apiGet<{ wallets: DepositWallet[] }>("/api/wallet/deposit"),
+				apiGet<CoinOption[]>("/api/coins").catch(() => []),
+				apiGet<{ wallets: UserWalletRecord[] }>("/api/wallet/all").catch(() => ({ wallets: [] })),
+			]);
+			setWallets(w.wallets || []);
+			setCoins((Array.isArray(c) ? c : []).map((x) => ({ symbol: x.symbol, name: x.name, network: x.network })));
+			setUserWallets(u.wallets || []);
 		} catch (err: any) {
-			setError(err.message || "Failed to fetch wallet connections");
+			setError(err?.message || "Failed to load wallets");
 		} finally {
 			setLoading(false);
 		}
-	};
-
-	useEffect(() => {
-		fetchWallets();
 	}, []);
 
-	const handleCreate = async (e: FormEvent) => {
+	useEffect(() => {
+		void load();
+	}, [load]);
+
+	const enabledCount = useMemo(() => wallets.filter((w) => w.enabled).length, [wallets]);
+
+	if (loading) return <div className="p-4 text-sm text-muted-foreground">Loading wallets…</div>;
+
+	return (
+		<div className="mx-auto max-w-4xl space-y-5">
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+				<div>
+					<h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Deposit wallets</h1>
+					<p className="text-sm text-muted-foreground">
+						Addresses users send funds to. Each enabled wallet appears on the user Deposit page with its network, QR code and minimum.
+					</p>
+				</div>
+				<button
+					type="button"
+					onClick={() => setEditing("new")}
+					className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+				>
+					<Plus className="h-4 w-4" /> Add deposit wallet
+				</button>
+			</div>
+
+			{error && <p className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-600">{error}</p>}
+
+			<p className="text-xs text-muted-foreground">
+				{wallets.length} wallet{wallets.length === 1 ? "" : "s"} · {enabledCount} live on the Deposit page
+			</p>
+
+			{wallets.length === 0 ? (
+				<div className="rounded-xl border border-dashed border-border p-6 text-center">
+					<Wallet className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+					<p className="font-medium">No deposit wallets yet</p>
+					<p className="mt-1 text-sm text-muted-foreground">Users currently see "Crypto deposits are not available yet". Add your first wallet to enable deposits.</p>
+					<button type="button" onClick={() => setEditing("new")} className="mt-4 min-h-[44px] rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">
+						Add deposit wallet
+					</button>
+				</div>
+			) : (
+				<ul className="space-y-2">
+					{wallets.map((w) => (
+						<li key={w._id}>
+							<button
+								type="button"
+								onClick={() => setEditing(w)}
+								className="flex w-full min-h-[64px] items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted/40 focus:outline-none focus:ring-2 focus:ring-primary"
+							>
+								<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">{w.symbol.slice(0, 4)}</div>
+								<div className="min-w-0 flex-1">
+									<div className="flex flex-wrap items-center gap-2">
+										<span className="font-semibold">{w.symbol}</span>
+										<span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">{w.network}</span>
+										<span className={cn("rounded-full px-2 py-0.5 text-xs", w.enabled ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground")}>
+											{w.enabled ? "Live" : "Disabled"}
+										</span>
+									</div>
+									<p className="truncate font-mono text-xs text-muted-foreground">{short(w.address)}</p>
+									<p className="text-xs text-muted-foreground">
+										{w.label ? `${w.label} · ` : ""}Min ${Number(w.minDeposit || 0).toLocaleString()}
+									</p>
+								</div>
+								<ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+							</button>
+						</li>
+					))}
+				</ul>
+			)}
+
+			{/* Legacy user-linked wallet records (not used for deposits) */}
+			<div className="rounded-xl border border-border">
+				<button
+					type="button"
+					onClick={() => setShowUserWallets((s) => !s)}
+					className="flex min-h-[48px] w-full items-center justify-between gap-2 px-4 text-left text-sm font-medium"
+				>
+					<span className="flex items-center gap-2"><Users className="h-4 w-4" /> User wallet records ({userWallets.length})</span>
+					<ChevronRight className={cn("h-4 w-4 transition-transform", showUserWallets && "rotate-90")} />
+				</button>
+				{showUserWallets && (
+					<div className="space-y-2 border-t border-border p-3">
+						<p className="text-xs text-muted-foreground">Wallets saved against individual users (e.g. payout addresses). They are not shown on the Deposit page.</p>
+						{userWallets.length === 0 ? (
+							<p className="text-sm text-muted-foreground">None.</p>
+						) : (
+							userWallets.map((u) => (
+								<div key={u._id} className="rounded-lg border border-border p-3 text-sm">
+									<p className="break-all font-mono text-xs">{u.walletAddress || "--"}</p>
+									<p className="text-xs text-muted-foreground">
+										{u.userId?.email || "Not linked to a user"} · {u.network || "network n/a"}
+										{u.connectedAt ? ` · ${new Date(u.connectedAt).toLocaleDateString()}` : ""}
+									</p>
+								</div>
+							))
+						)}
+					</div>
+				)}
+			</div>
+
+			{editing && (
+				<WalletSheet
+					wallet={editing === "new" ? null : editing}
+					coins={coins}
+					onClose={() => setEditing(null)}
+					onSaved={async () => {
+						setEditing(null);
+						await load();
+					}}
+				/>
+			)}
+		</div>
+	);
+}
+
+function WalletSheet({
+	wallet,
+	coins,
+	onClose,
+	onSaved,
+}: {
+	wallet: DepositWallet | null;
+	coins: CoinOption[];
+	onClose: () => void;
+	onSaved: () => Promise<void>;
+}) {
+	const [form, setForm] = useState<FormState>(() =>
+		wallet
+			? { symbol: wallet.symbol, network: wallet.network, address: wallet.address, label: wallet.label || "", memo: wallet.memo || "", minDeposit: String(wallet.minDeposit ?? 0), enabled: wallet.enabled }
+			: emptyForm,
+	);
+	const [saving, setSaving] = useState(false);
+	const [err, setErr] = useState("");
+
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+		document.addEventListener("keydown", onKey);
+		const prev = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+		return () => {
+			document.removeEventListener("keydown", onKey);
+			document.body.style.overflow = prev;
+		};
+	}, [onClose]);
+
+	const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }));
+
+	const submit = async (e: FormEvent) => {
 		e.preventDefault();
-		setFormError("");
-		if (!form.address.trim()) {
-			setFormError("Wallet address is required");
-			return;
-		}
+		setErr("");
+		if (!form.symbol) return setErr("Choose a coin");
+		if (!form.network.trim()) return setErr("Network is required");
+		if (!/^[A-Za-z0-9:_\-.]{10,200}$/.test(form.address.trim())) return setErr("Enter a valid address (no spaces)");
 		setSaving(true);
 		try {
-			const res = await apiPost<{ wallet: WalletConnection }>("/api/wallet", form);
-			setWallets((prev) => [res.wallet, ...prev]);
-			setForm(emptyForm);
-			setShowForm(false);
-		} catch (err: any) {
-			setFormError(err.message || "Failed to create wallet");
+			const body = { ...form, address: form.address.trim(), network: form.network.trim(), minDeposit: Number(form.minDeposit || 0) };
+			if (wallet) await apiPut(`/api/wallet/deposit/${wallet._id}`, body);
+			else await apiPost("/api/wallet/deposit", body);
+			toast.success(wallet ? "Wallet updated" : "Deposit wallet added");
+			await onSaved();
+		} catch (error: any) {
+			setErr(error?.message || "Save failed");
 		} finally {
 			setSaving(false);
 		}
 	};
 
-	const update = (key: keyof typeof emptyForm) => (e: { target: { value: string } }) =>
-		setForm((f) => ({ ...f, [key]: e.target.value }));
-
-	if (loading) {
-		return <div className="text-sm text-gray-500">Loading wallet records...</div>;
-	}
-
-	if (error) {
-		return <div className="text-sm text-red-600">{error}</div>;
-	}
+	const remove = async () => {
+		if (!wallet || !window.confirm(`Delete the ${wallet.symbol} (${wallet.network}) deposit wallet? Users will no longer see it.`)) return;
+		setSaving(true);
+		try {
+			await apiDelete(`/api/wallet/deposit/${wallet._id}`);
+			toast.success("Wallet deleted");
+			await onSaved();
+		} catch (error: any) {
+			setErr(error?.message || "Delete failed");
+			setSaving(false);
+		}
+	};
 
 	return (
-		<div className="space-y-4">
-			<div className="flex flex-wrap items-center justify-between gap-3">
-				<div>
-					<h2 className="text-2xl font-semibold">Wallet Connections</h2>
-					<p className="text-sm text-muted-foreground">
-						User wallet records. Deposit addresses shown to users are set per coin and network in{" "}
-						<Link to="/admin/settings" className="font-medium text-primary underline-offset-2 hover:underline">Settings › Coins</Link>.
-					</p>
+		<div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={onClose} role="presentation">
+			<div
+				role="dialog"
+				aria-modal="true"
+				aria-label={wallet ? "Edit deposit wallet" : "Add deposit wallet"}
+				onClick={(e) => e.stopPropagation()}
+				className="flex h-[100dvh] w-full flex-col bg-background sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-2xl sm:border sm:border-border"
+			>
+				<div className="flex items-center justify-between border-b border-border px-4 py-3">
+					<h2 className="text-lg font-semibold">{wallet ? `Edit ${wallet.symbol} wallet` : "Add deposit wallet"}</h2>
+					<button type="button" onClick={onClose} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-muted">
+						<X className="h-5 w-5" />
+					</button>
 				</div>
-				<button
-					type="button"
-					onClick={() => setShowForm((s) => !s)}
-					className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-				>
-					{showForm ? "Cancel" : "Add Wallet"}
-				</button>
-			</div>
-
-			{showForm && (
-				<form onSubmit={handleCreate} className="grid gap-3 rounded-md border border-gray-800 p-4 sm:grid-cols-2">
-					<label className="space-y-1 sm:col-span-2">
-						<span className="text-xs text-gray-400">Wallet address *</span>
-						<input className={`${inputClass} font-mono`} value={form.address} onChange={update("address")} placeholder="0x..." required />
-					</label>
-					<label className="space-y-1">
-						<span className="text-xs text-gray-400">Network</span>
-						<input className={inputClass} value={form.network} onChange={update("network")} placeholder="e.g. ERC20, TRC20, BTC" />
-					</label>
-					<label className="space-y-1">
-						<span className="text-xs text-gray-400">Assign to user (email, optional)</span>
-						<input className={inputClass} type="email" value={form.userEmail} onChange={update("userEmail")} placeholder="user@example.com" />
-					</label>
-					<label className="space-y-1">
-						<span className="text-xs text-gray-400">Method / provider</span>
-						<input className={inputClass} value={form.provider} onChange={update("provider")} />
-					</label>
-					<label className="space-y-1">
-						<span className="text-xs text-gray-400">Status</span>
-						<select className={`${inputClass} bg-background`} value={form.status} onChange={update("status")}>
-							<option value="connected">connected</option>
-							<option value="active">active</option>
-							<option value="disconnected">disconnected</option>
-						</select>
-					</label>
-					{formError && <p className="text-sm text-red-500 sm:col-span-2">{formError}</p>}
-					<div className="sm:col-span-2">
-						<button
-							type="submit"
-							disabled={saving}
-							className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50 sm:w-auto"
-						>
-							{saving ? "Saving..." : "Create Wallet"}
+				<form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+					<div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+						<label className="block space-y-1">
+							<span className="text-sm font-medium">Coin *</span>
+							<select
+								className={field}
+								value={form.symbol}
+								onChange={(e) => {
+									const c = coins.find((x) => x.symbol === e.target.value);
+									setForm((f) => ({ ...f, symbol: e.target.value, network: f.network || c?.network || "" }));
+								}}
+							>
+								<option value="">Select a coin…</option>
+								{coins.map((c) => (
+									<option key={c.symbol} value={c.symbol}>
+										{c.symbol} · {c.name}
+									</option>
+								))}
+							</select>
+						</label>
+						<label className="block space-y-1">
+							<span className="text-sm font-medium">Network *</span>
+							<input className={field} value={form.network} onChange={(e) => set("network", e.target.value)} placeholder="e.g. TRC20, ERC20, Bitcoin" />
+						</label>
+						<label className="block space-y-1">
+							<span className="text-sm font-medium">Deposit address *</span>
+							<textarea
+								className={cn(field, "min-h-[84px] font-mono")}
+								value={form.address}
+								onChange={(e) => set("address", e.target.value)}
+								placeholder="Paste the receiving address"
+								spellCheck={false}
+								autoCapitalize="off"
+								autoCorrect="off"
+							/>
+						</label>
+						{form.address.trim().length >= 10 && (
+							<div className="flex justify-center rounded-lg border border-border bg-white p-3">
+								<QRCode value={form.address.trim()} size={120} />
+							</div>
+						)}
+						<div className="grid gap-4 sm:grid-cols-2">
+							<label className="block space-y-1">
+								<span className="text-sm font-medium">Minimum deposit (USD)</span>
+								<input className={field} type="number" inputMode="decimal" min="0" step="0.01" value={form.minDeposit} onChange={(e) => set("minDeposit", e.target.value)} />
+							</label>
+							<label className="block space-y-1">
+								<span className="text-sm font-medium">Label (optional)</span>
+								<input className={field} value={form.label} onChange={(e) => set("label", e.target.value)} placeholder="e.g. Treasury hot wallet" />
+							</label>
+						</div>
+						<label className="block space-y-1">
+							<span className="text-sm font-medium">Memo / tag (optional)</span>
+							<input className={field} value={form.memo} onChange={(e) => set("memo", e.target.value)} placeholder="Only for networks that need one (XRP, XLM…)" />
+						</label>
+						<label className="flex min-h-[48px] items-center justify-between gap-3 rounded-lg border border-border px-3">
+							<span className="text-sm font-medium">Show on Deposit page</span>
+							<input type="checkbox" className="h-6 w-6 accent-[hsl(var(--primary))]" checked={form.enabled} onChange={(e) => set("enabled", e.target.checked)} />
+						</label>
+						{err && <p className="text-sm text-red-600">{err}</p>}
+					</div>
+					<div className="flex flex-col-reverse gap-2 border-t border-border px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-between">
+						{wallet ? (
+							<button type="button" onClick={remove} disabled={saving} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-red-500/40 px-4 text-sm font-medium text-red-600 disabled:opacity-50">
+								<Trash2 className="h-4 w-4" /> Delete
+							</button>
+						) : (
+							<span />
+						)}
+						<button type="submit" disabled={saving} className="min-h-[44px] rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground disabled:opacity-50">
+							{saving ? "Saving…" : wallet ? "Save changes" : "Add wallet"}
 						</button>
 					</div>
 				</form>
-			)}
-
-			{wallets.length === 0 ? (
-				<p className="text-sm text-gray-500">No wallet records found.</p>
-			) : (
-				<>
-					{/* Mobile cards */}
-					<div className="space-y-3 md:hidden">
-						{wallets.map((wallet) => (
-							<div key={wallet._id} className="space-y-1 rounded-md border border-gray-800 p-3 text-sm">
-								<p className="break-all font-mono text-xs">{wallet.walletAddress || "--"}</p>
-								<p className="text-gray-400">{wallet.userId?.email || "Unassigned"}</p>
-								<div className="flex flex-wrap gap-x-3 text-xs text-gray-500">
-									<span>{wallet.network || "--"}</span>
-									<span>{wallet.connectionMethod}</span>
-									<span>{wallet.connectedAt ? new Date(wallet.connectedAt).toLocaleString() : "--"}</span>
-								</div>
-							</div>
-						))}
-					</div>
-					{/* Desktop table */}
-					<div className="hidden overflow-x-auto rounded-md border md:block">
-						<table className="min-w-full text-left text-sm">
-							<thead className="bg-gray-800">
-								<tr>
-									<th className="px-3 py-2">User Email</th>
-									<th className="px-3 py-2">UID</th>
-									<th className="px-3 py-2">Wallet Address</th>
-									<th className="px-3 py-2">Network</th>
-									<th className="px-3 py-2">Method</th>
-									<th className="px-3 py-2">Connected</th>
-								</tr>
-							</thead>
-							<tbody>
-								{wallets.map((wallet) => (
-									<tr key={wallet._id} className="border-t border-gray-800 align-top">
-										<td className="px-3 py-2">{wallet.userId?.email || "--"}</td>
-										<td className="px-3 py-2">{wallet.userId?.uid || "--"}</td>
-										<td className="break-all px-3 py-2 font-mono text-xs">{wallet.walletAddress || "--"}</td>
-										<td className="px-3 py-2">{wallet.network || "--"}</td>
-										<td className="px-3 py-2">{wallet.connectionMethod}</td>
-										<td className="px-3 py-2">{wallet.connectedAt ? new Date(wallet.connectedAt).toLocaleString() : "--"}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-				</>
-			)}
+			</div>
 		</div>
 	);
 }

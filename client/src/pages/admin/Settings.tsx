@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
@@ -11,13 +12,10 @@ import {
 	Settings2,
 	Plus,
 	Save,
-	Eye,
-	EyeOff,
 	Globe,
 	Network,
 	Wallet,
 	AlertCircle,
-	CheckCircle2,
 	XCircle,
 	Info,
 } from "lucide-react";
@@ -91,7 +89,6 @@ export default function AdminSettingsPage() {
 	const [newStock, setNewStock] = useState("");
 
 	// UI state
-	const [showAddressFor, setShowAddressFor] = useState<Set<string>>(new Set());
 
 	const [minTradeAmount, setMinTradeAmount] = useState("100");
 	const [savingMinTrade, setSavingMinTrade] = useState(false);
@@ -278,18 +275,6 @@ export default function AdminSettingsPage() {
 		toast.success("Fees saved successfully");
 	};
 
-	const toggleAddressVisibility = (symbol: string) => {
-		setShowAddressFor((prev) => {
-			const next = new Set(prev);
-			if (next.has(symbol)) {
-				next.delete(symbol);
-			} else {
-				next.add(symbol);
-			}
-			return next;
-		});
-	};
-
 
 	const tabButtons = [
 		{ key: "crypto" as const, label: "Cryptocurrency", icon: Coins, count: coins.length },
@@ -374,7 +359,7 @@ export default function AdminSettingsPage() {
 								<Coins className="h-5 w-5 text-accent-500" />
 								Cryptocurrency Wallets
 							</CardTitle>
-							<CardDescription>Configure deposit/withdrawal settings and wallet addresses for each cryptocurrency</CardDescription>
+							<CardDescription>Withdrawal settings per coin. Deposit addresses are managed in Admin › Wallets.</CardDescription>
 						</CardHeader>
 						<CardContent className="p-0 space-y-4">
 							{coins.map((coin) => (
@@ -410,82 +395,21 @@ export default function AdminSettingsPage() {
 											</div>
 										</div>
 
-										{/* Network */}
-										<div className="space-y-2">
-											<label className="text-sm font-medium" htmlFor={`net-${coin.symbol}`}>Network</label>
-											<Input
-												id={`net-${coin.symbol}`}
-												value={coin.network || ""}
-												onChange={(e) =>
-													setCoins((prev) =>
-														prev.map((c) => (c.symbol === coin.symbol ? { ...c, network: e.target.value } : c))
-													)
-												}
-												placeholder="e.g. TRC20, ERC20, Bitcoin"
-											/>
-										</div>
-
-										{/* Wallet Address */}
-										<div className="space-y-2">
-											<div className="flex items-center justify-between">
-												<label className="text-sm font-medium flex items-center gap-1.5">
-													<Wallet className="h-3.5 w-3.5 text-muted-foreground" />
-													Deposit Wallet Address
-												</label>
-												<Button
-													variant="ghost"
-													size="sm"
-													onClick={() => toggleAddressVisibility(coin.symbol)}
-													className="h-6 text-xs"
-												>
-													{showAddressFor.has(coin.symbol) ? (
-														<><EyeOff className="h-3 w-3 mr-1" /> Hide</>
-													) : (
-														<><Eye className="h-3 w-3 mr-1" /> Show</>
-													)}
-												</Button>
-											</div>
-
-											<Input
-												type={showAddressFor.has(coin.symbol) ? "text" : "password"}
-												value={coin.address || ""}
-												onChange={(e) =>
-													setCoins((prev) =>
-														prev.map((c) => (c.symbol === coin.symbol ? { ...c, address: e.target.value } : c))
-													)
-												}
-												placeholder={`${coin.symbol} deposit address`}
-												className="font-mono"
-											/>
-											{coin.address ? (
-												<p className="text-xs text-green-600 flex items-center gap-1">
-													<CheckCircle2 className="h-3 w-3" /> Address configured
-												</p>
-											) : (
-												<p className="text-xs text-amber-600 flex items-center gap-1">
-													<AlertCircle className="h-3 w-3" /> No address set — users will see "Address not configured"
-												</p>
-											)}
+										{/* Deposit wallets are managed in Admin > Wallets (single source of truth) */}
+										<div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+											<span className="flex items-center gap-1.5">
+												<Wallet className="h-4 w-4 text-muted-foreground" />
+												{coin.deposit ? (
+													<span className="text-green-600">Deposits on via {coin.network || "wallet"}{coin.address ? ` · ${coin.address.slice(0, 6)}…${coin.address.slice(-4)}` : ""}</span>
+												) : (
+													<span className="text-amber-600">No deposit wallet. Deposits off.</span>
+												)}
+											</span>
+											<Link to="/admin/wallets" className="font-medium text-primary hover:underline">Manage deposit wallets →</Link>
 										</div>
 
 										{/* Limits Grid */}
-										<div className="grid gap-3 md:grid-cols-3">
-											<div className="space-y-2">
-												<label className="text-xs font-medium text-muted-foreground">Minimum Deposit</label>
-												<Input
-													type="number"
-													step="0.01"
-													value={coin.minDeposit}
-													onChange={(e) =>
-														setCoins((prev) =>
-															prev.map((c) =>
-																c.symbol === coin.symbol ? { ...c, minDeposit: numberOr(e.target.value) } : c
-															)
-														)
-													}
-													placeholder="0.00"
-												/>
-											</div>
+										<div className="grid gap-3 sm:grid-cols-2">
 											<div className="space-y-2">
 												<label className="text-xs font-medium text-muted-foreground">Minimum Withdrawal</label>
 												<Input
@@ -522,24 +446,6 @@ export default function AdminSettingsPage() {
 
 										{/* Status Toggles */}
 										<div className="flex items-center gap-4 pt-2 border-t border-border/50">
-											<div className="flex-1 flex items-center justify-between">
-												<div className="flex items-center gap-2">
-													<CheckCircle2 className="h-4 w-4 text-green-600" />
-													<span className="text-sm font-medium">Deposits</span>
-												</div>
-												<Button
-													size="sm"
-													variant={coin.deposit ? "primary" : "outline"}
-													onClick={() =>
-														setCoins((prev) =>
-															prev.map((c) => (c.symbol === coin.symbol ? { ...c, deposit: !c.deposit } : c))
-														)
-													}
-													className={cn("h-8 w-20", coin.deposit && "bg-green-600 hover:bg-green-700")}
-												>
-													{coin.deposit ? "Enabled" : "Disabled"}
-												</Button>
-											</div>
 											<div className="flex-1 flex items-center justify-between">
 												<div className="flex items-center gap-2">
 													<XCircle className="h-4 w-4 text-orange-600" />
@@ -590,11 +496,6 @@ export default function AdminSettingsPage() {
 									placeholder="Network (e.g., XRP)"
 									value={newCoin.network}
 									onChange={(e) => setNewCoin((prev) => ({ ...prev, network: e.target.value }))}
-								/>
-								<Input
-									placeholder="Wallet Address"
-									value={newCoin.address}
-									onChange={(e) => setNewCoin((prev) => ({ ...prev, address: e.target.value }))}
 								/>
 								<Input
 									type="number"
