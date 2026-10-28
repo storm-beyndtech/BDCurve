@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { TawkWidget } from "@/components/support/tawk-widget";
 import { ToastProvider } from "@/components/providers/toast-provider";
 import { ScrollToTop } from "@/components/routing/scroll-to-top";
 
@@ -79,6 +80,7 @@ function App() {
 			<AuthProvider>
 				<ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
 					<ToastProvider />
+					<TawkWidget />
 					<ScrollToTop>
 						<Suspense fallback={<RouteFallback />}>
 						<Routes>
