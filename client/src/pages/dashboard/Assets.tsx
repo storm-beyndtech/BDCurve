@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { PriceAreaChart } from "@/components/charts/price-area-chart";
 import { useNavigate } from "react-router-dom";
 import { HoldingsPanel } from "@/components/portfolio/holdings-panel";
-import { fetchPortfolio, type Portfolio } from "@/lib/portfolio";
+import { fetchPortfolio, pct, price, qty, type Portfolio } from "@/lib/portfolio";
 
 interface UserAsset {
 	symbol: string;
@@ -315,10 +315,10 @@ export default function AssetsPage() {
 												<p className="font-semibold">••••••</p>
 											) : (
 												<>
-													<p className="font-semibold">{asset.totalQuantity.toLocaleString()} {asset.symbol}</p>
+													<p className="font-semibold">{qty(asset.totalQuantity)} {asset.symbol}</p>
 													{asset.funding > 0 && (
 														<p className="text-xs text-muted-foreground">
-															Spot: {asset.spot.toLocaleString()} | Funding: {asset.funding.toLocaleString()}
+															Spot: {qty(asset.spot)} | Funding: {qty(asset.funding)}
 														</p>
 													)}
 												</>
@@ -329,10 +329,7 @@ export default function AssetsPage() {
 										<div className="hidden md:block text-right">
 											<p className="text-sm text-muted-foreground">Price</p>
 											<p className="font-semibold">
-												${asset.currentPrice.toLocaleString("en-US", {
-													minimumFractionDigits: 2,
-													maximumFractionDigits: asset.currentPrice < 1 ? 4 : 2,
-												})}
+												{asset.currentPrice > 0 ? price(asset.currentPrice) : "--"}
 											</p>
 										</div>
 
@@ -340,8 +337,7 @@ export default function AssetsPage() {
 										<div className="hidden lg:block text-right">
 											<p className="text-sm text-muted-foreground">24h Change</p>
 											<p className={cn("font-semibold", isPositive ? "text-green-600" : "text-red-600")}>
-												{isPositive ? "+" : ""}
-												{asset.change24h.toFixed(2)}%
+												{pct(asset.change24h)}
 											</p>
 										</div>
 

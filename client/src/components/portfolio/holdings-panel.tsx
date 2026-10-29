@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeftRight, ArrowUpDown, BadgeDollarSign, CandlestickChart, Search } from "lucide-react";
 import { AssetLogo } from "@/components/common/asset-logo";
 import { cn } from "@/lib/utils";
-import { qty, usd, type Portfolio } from "@/lib/portfolio";
+import { pct, price, qty, type Portfolio, usd } from "@/lib/portfolio";
 import { SwapSheet } from "./swap-sheet";
 
 type SortKey = "value" | "change" | "name";
 
 /** "Your assets": searchable, sortable holdings with quick Sell-to-USDT / Swap / Trade actions. */
+const clean1 = (n: number) => (Number.isFinite(n) && n > 0 ? n.toFixed(1) : "0.0");
+
 export function HoldingsPanel({ portfolio, loading, onChanged, title = "Your assets", limit }: { portfolio: Portfolio | null; loading?: boolean; onChanged: () => void; title?: string; limit?: number }) {
 	const navigate = useNavigate();
 	const [q, setQ] = useState("");
@@ -72,13 +74,13 @@ export function HoldingsPanel({ portfolio, loading, onChanged, title = "Your ass
 										<p className="shrink-0 font-semibold">{h.priced ? usd(h.value) : "--"}</p>
 									</div>
 									<div className="flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
-										<p className="truncate">{qty(h.quantity)} · {h.priced ? usd(h.price, h.price < 1 ? 6 : 2) : "price unavailable"}</p>
+										<p className="truncate">{qty(h.quantity)} · {h.priced ? price(h.price) : "price unavailable"}</p>
 										<p className="shrink-0">
-											{h.type !== "cash" && <span className={cn(h.change24h >= 0 ? "text-green-600" : "text-red-600")}>{h.change24h >= 0 ? "+" : ""}{h.change24h.toFixed(2)}%</span>}
-											<span className="ml-2">{h.allocation.toFixed(1)}%</span>
+											{h.type !== "cash" && <span className={cn(h.change24h >= 0 ? "text-green-600" : "text-red-600")}>{pct(h.change24h)}</span>}
+											<span className="ml-2">{clean1(h.allocation)}%</span>
 										</p>
 									</div>
-									{h.pnl !== null && <p className={cn("text-xs", h.pnl >= 0 ? "text-green-600" : "text-red-600")}>P&amp;L {h.pnl >= 0 ? "+" : "-"}{usd(Math.abs(h.pnl))}{h.pnlPercent !== null ? ` (${h.pnlPercent.toFixed(1)}%)` : ""}</p>}
+									{h.pnl !== null && <p className={cn("text-xs", h.pnl >= 0 ? "text-green-600" : "text-red-600")}>P&amp;L {h.pnl >= 0 ? "+" : "-"}{usd(Math.abs(h.pnl))}{h.pnlPercent !== null ? ` (${pct(h.pnlPercent, 1)})` : ""}</p>}
 								</div>
 							</div>
 							{h.type !== "cash" && (
