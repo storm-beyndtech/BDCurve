@@ -200,7 +200,7 @@ export default function DashboardPage() {
 				apiGet<any>(`/api/auth/users/${user.id}`).catch(() => null),
 				apiGet<any>("/api/market/stocks").catch(() => []),
 				apiGet<any>("/api/coins").catch(() => []),
-				apiGet<any>(`/api/transaction/all?userId=${user.id}&limit=5&sort=-createdAt`).catch(() => []),
+				apiGet<any>(`/api/transaction/all?userId=${user.id}&limit=200&sort=-createdAt`).catch(() => []),
 				fetchPortfolio().catch(() => null),
 			]);
 
@@ -244,7 +244,7 @@ export default function DashboardPage() {
 
 			// Process recent activity
 			const txnData = Array.isArray(transactions) ? transactions : transactions?.transactions || [];
-			const profitTransactions = txnData.filter((txn: any) => txn.type === "profit");
+			const profitTransactions = txnData.filter((txn: any) => txn.type === "profit" && ["completed", "approved", "executed"].includes(String(txn.status || "completed")));
 			const totalProfit = profitTransactions.reduce(
 				(total: number, txn: any) => total + (Number(txn.amount) || 0),
 				0,
