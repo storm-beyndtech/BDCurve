@@ -71,15 +71,17 @@ export function computePortfolio(assets: RawAsset[], prices: Map<string, PriceIn
     const change24h = stable ? 0 : num(info?.changePercent);
     const dayChange = price > 0 && change24h ? value - value / (1 + change24h / 100) : 0;
     const b = basis.get(symbol);
+    // Basis is only known for units acquired through trades; deposited/credited units have no cost record,
+    // so P&L is measured on the tracked quantity only (never extrapolated onto deposits).
     const tracked = b && b.qty > 0 ? Math.min(b.qty, quantity) : 0;
     const avgCost = tracked > 0 ? b!.cost / b!.qty : null;
-    const costBasis = avgCost !== null ? avgCost * quantity : null;
-    const pnl = costBasis !== null && price > 0 ? value - costBasis : null;
+    const costBasis = avgCost !== null ? avgCost * tracked : null;
+    const pnl = costBasis !== null && price > 0 ? tracked * price - costBasis : null;
     holdings.push({
       symbol, name: info?.name || a.name || symbol, type: stable ? "cash" : info?.type || "crypto",
       quantity, spot: a.spot, funding: a.funding,
       price, value, allocation: 0, change24h, dayChange,
-      priced: price > 0, dust: value < DUST_USD,
+      priced: price > 0, dust: price > 0 && value < DUST_USD,
       costBasis: costBasis !== null ? round(costBasis) : null,
       avgCost: avgCost !== null ? avgCost : null,
       pnl: pnl !== null ? round(pnl) : null,
@@ -106,6 +108,16 @@ export function computePortfolio(assets: RawAsset[], prices: Map<string, PriceIn
     unpricedSymbols: holdings.filter((h) => !h.priced).map((h) => h.symbol),
     holdings,
   };
+}
+
+/**
+ * Deposits are entered in USD on the deposit form. Credit the coin in COIN UNITS:
+ * stables 1:1, anything else usdAmount / price. Returns null when no valid price.
+ */
+export function depositCreditQuantity(symbol: string, usdAmount: number, price: number | null | undefined) {
+  if (!(usdAmount > 0)) return null;
+  if (STABLES.has(String(symbol).toUpperCase())) return usdAmount;
+  return price && price > 0 ? Number((usdAmount / price).toFixed(10)) : null;
 }
 
 /** Quote for selling `fromQty` of A into B at given USD prices. */

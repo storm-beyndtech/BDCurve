@@ -8,6 +8,7 @@ import { Coin } from "../models/Market.js";
 import { defaultCoins } from "../config/catalogue.js";
 import { DepositWallet } from "../models/DepositWallet.js";
 import { notifyTransaction } from "../services/notifications.js";
+import { depositCreditQuantity } from "../services/portfolio.js";
 
 /** Effective coin config = catalogue default overlaid with the admin DB row (same merge as GET /api/coins). */
 async function coinConfig(symbol: string) {
@@ -173,11 +174,22 @@ router.put("/deposit/approve/:id", requireAdmin, async (req, res) => {
   if (transaction.status !== "approved" && transaction.status !== "completed") {
     const user = await User.findById(transaction.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
-    const symbol = transaction.symbol || "USDT";
+    const symbol = (transaction.symbol || "USDT").toUpperCase();
+    // transaction.amount is USD (deposit form). Credit coin units: admin may pass the received quantity,
+    // otherwise convert at the live price. Previously the USD figure was credited as coin units ($500 BTC -> 500 BTC).
+    const override = Number(req.body?.quantity);
+    let price: number | undefined;
+    if (!(override > 0)) {
+      try { price = Number((await getMarketPrice(symbol, "crypto"))?.price); } catch { /* handled below */ }
+    }
+    const credit = override > 0 ? override : depositCreditQuantity(symbol, Number(transaction.amount), price);
+    if (!credit) return res.status(503).json({ message: `No live ${symbol} price to convert $${transaction.amount}; pass the received quantity to approve.` });
     const asset = user.assets.find((item) => item.symbol === symbol);
-    if (asset) asset.spot = Number(asset.spot) + transaction.amount;
-    else user.assets.push({ symbol, name: symbol, spot: transaction.amount, funding: 0 });
+    if (asset) asset.spot = Number(asset.spot) + credit;
+    else user.assets.push({ symbol, name: symbol, spot: credit, funding: 0 });
     await user.save();
+    transaction.quantity = credit;
+    if (price) transaction.price = price;
   }
   transaction.status = "approved";
   transaction.reviewedBy = req.user!._id;

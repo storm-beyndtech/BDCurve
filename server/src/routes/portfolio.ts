@@ -27,10 +27,10 @@ router.get("/", async (req, res) => {
   const user = await User.findById(userId).select("assets").lean();
   if (!user) return res.status(404).json({ message: "User not found" });
   const assets = (user.assets || []) as any[];
-  const [prices, trades] = await Promise.all([
-    getPriceMap(assets.map((a) => String(a.symbol || ""))),
-    Transaction.find({ userId, type: "trade" }).select("symbol side quantity price amount status createdAt").lean(),
-  ]);
+  const trades = await Transaction.find({ userId, type: "trade" }).select("symbol side quantity price amount status assetType createdAt").lean();
+  const hints = new Map<string, "crypto" | "stock">();
+  for (const t of trades as any[]) if (t.symbol && (t.assetType === "stock" || t.assetType === "crypto")) hints.set(String(t.symbol).toUpperCase(), t.assetType);
+  const prices = await getPriceMap(assets.map((a) => String(a.symbol || "")), hints);
   res.set("Cache-Control", "no-store");
   res.json({ ...computePortfolio(assets, prices, trades as any), pricedAt: new Date().toISOString() });
 });

@@ -1,17 +1,29 @@
 import { defaultCoins, defaultStocks } from "../config/catalogue.js";
 import { getCryptoQuotes, getStockQuote, getStockSnapshots, marketData } from "./marketData.js";
 import { STABLES, type PriceInfo } from "./portfolio.js";
+import { Coin, Stock } from "../models/Market.js";
 
-const coinSet = new Set(defaultCoins.map((c) => c.symbol));
-const stockSet = new Set(defaultStocks.map((s) => s.symbol));
+const baseCoins = defaultCoins.map((c) => c.symbol);
+const baseStocks = defaultStocks.map((s) => s.symbol);
+const coinSet = new Set(baseCoins);
+const stockSet = new Set(baseStocks);
 const nameOf = (sym: string) => defaultCoins.find((c) => c.symbol === sym)?.name || defaultStocks.find((s) => s.symbol === sym)?.name;
 
 /** Crypto first (catalogue coins), then stocks; unknown symbols try crypto then stock. Never throws; missing => absent. */
-export async function getPriceMap(symbols: string[]): Promise<Map<string, PriceInfo>> {
+export async function getPriceMap(symbols: string[], typeHints: Map<string, "crypto" | "stock"> = new Map()): Promise<Map<string, PriceInfo>> {
   const out = new Map<string, PriceInfo>();
+  // Admin-added catalogue rows (DB) must classify too; otherwise a stock ticker could be priced as a same-named crypto token.
+  const coinSet = new Set(baseCoins);
+  const stockSet = new Set(baseStocks);
+  try {
+    const [c, st] = await Promise.all([Coin.find().select("symbol").lean(), Stock.find().select("symbol").lean()]);
+    for (const x of c as any[]) if (x?.symbol) coinSet.add(String(x.symbol).toUpperCase());
+    for (const x of st as any[]) if (x?.symbol) stockSet.add(String(x.symbol).toUpperCase());
+  } catch { /* defaults only */ }
+  for (const [s, t] of typeHints) (t === "stock" ? stockSet : coinSet).add(s.toUpperCase());
   const syms = [...new Set(symbols.map((s) => s.toUpperCase()))].filter((s) => s && !STABLES.has(s));
-  const cryptos = syms.filter((s) => coinSet.has(s) || !stockSet.has(s));
-  const stocks = syms.filter((s) => stockSet.has(s) && !coinSet.has(s));
+  const cryptos = syms.filter((s) => (coinSet.has(s) && typeHints.get(s) !== "stock") || !stockSet.has(s));
+  const stocks = syms.filter((s) => stockSet.has(s) && !cryptos.includes(s));
 
   if (cryptos.length) {
     try {
